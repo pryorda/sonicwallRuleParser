@@ -29,6 +29,7 @@ addrSubnet=""
 addrZone=""
 addrType=""
 addrID=""
+
 for line in read_data:
     line = line.strip()
     if re.match('^policy', line):
@@ -112,25 +113,18 @@ for line in read_data:
         elif re.match(str("^addrObjIp2_"+addrID), line):
             addrSubnet = re.search(str("^addrObjIp2_"+addrID+"=(.*)"), line).group(1)
         if addrID and addrName and addrType and addrZone and addrIP and addrSubnet:
-            if addrType == 8:
-                addrName=""
-                addrType=""
-                addrIP=""
-                addrZone=""
-                addrSubnet=""
-                addrID=""
-            else:
-                addrObjects[addrName] = {
-                    "addrZone": addrZone,
-                    "addrIP": addrIP,
-                    "addrSubnet": addrSubnet
-                }
-                addrID=""
-                addrName=""
-                addrType=""
-                addrIP=""
-                addrZone=""
-                addrSubnet=""
+            addrObjects[addrName] = {
+                "addrZone": addrZone,
+                "addrIP": addrIP,
+                "addrSubnet": addrSubnet,
+                "addrType": addrType
+            }
+            addrID=""
+            addrName=""
+            addrType=""
+            addrIP=""
+            addrZone=""
+            addrSubnet=""
 
 
 
@@ -141,13 +135,20 @@ for x in rules:
     print '%s,%s,%s,%s,%s,%s,%s' % (x["ruleSrcZone"], x["ruleDestZone"], x["ruleSrcNet"], x["ruleDestNet"], x["ruleDestService"], x["ruleAction"], x["ruleComment"])
 
 print ""
-
+print "=========================================================="
+print "================== Address Objects ======================="
+print "=========================================================="
+print "Address Name, Zone,IP, Subnet"
+oAddrObjects = collections.OrderedDict(sorted(addrObjects.items()))
+for addr,addrFields in oAddrObjects.iteritems():
+    print '%s,%s,%s,%s' % (addr, addrFields["addrZone"], addrFields["addrIP"], addrFields["addrSubnet"])
+print ""
+print "=========================================================="
+print "================== Address Groups ========================"
+print "=========================================================="
 for group,groupObjects in addrGroups.iteritems():
     print group
     for groupObj in groupObjects:
         print "\t", groupObj
     print ""
 
-oAddrObjects = collections.OrderedDict(sorted(addrObjects.items()))
-for addr,addrFields in oAddrObjects.iteritems():
-    print '%s,%s,%s,%s' % (addr, addrFields["addrZone"], addrFields["addrIP"], addrFields["addrSubnet"])
