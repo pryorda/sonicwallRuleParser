@@ -14,6 +14,7 @@ decoded_data = base64.b64decode(read_data)
 decoded_data =  decoded_data.split("&")
 
 rules=[]
+ruleID=""
 ruleSrcNet=""
 ruleSrcZone=""
 ruleDestNet=""
@@ -21,6 +22,11 @@ ruleDestZone=""
 ruleDestService=""
 ruleComment=""
 ruleAction=""
+ruleStatus=""
+
+prevSrcZone=""
+prevDestZone=""
+
 
 addrGroups={}
 groupID=""
@@ -82,7 +88,16 @@ for line in decoded_data:
                 ruleAction = "Discard"
             else:
                 ruleAction = "Deny"
-        if ruleSrcZone and ruleDestZone and ruleSrcNet and ruleDestNet and ruleDestService and ruleAction and ruleComment:
+        elif re.match('^policyEnabled', line):
+            if policyValue == "1":
+                ruleStatus = "Enabled"
+            else:
+                ruleStatus = "Disabled"
+        if ruleSrcZone and ruleDestZone and ruleSrcNet and ruleDestNet and ruleDestService and ruleAction and ruleStatus and ruleComment:
+            # Sonicwall is goofy and has some enabled rules set to 0 when its an auto-added rule
+            if re.match('^Auto', ruleComment) and ruleStatus == "Disabled":
+                ruleStatus = "Enabled"
+
             rule={
                 "ruleID": policyID,
                 "ruleSrcZone": ruleSrcZone,
@@ -91,6 +106,7 @@ for line in decoded_data:
                 "ruleDestNet": urllib.unquote(ruleDestNet),
                 "ruleDestService": urllib.unquote(ruleDestService),
                 "ruleAction": ruleAction,
+                "ruleStatus": ruleStatus,
                 "ruleComment": urllib.unquote(ruleComment)
             }
             rules.append(rule)
@@ -101,6 +117,7 @@ for line in decoded_data:
             ruleDestService=""
             ruleAction=""
             ruleComment=""
+            ruleStatus=""
 
     if re.match('^addro_', line):
         if re.match('^addro_atomToGrp_', line):
@@ -199,10 +216,14 @@ print "=========================================================="
 print "================== Firewall Rules ========================"
 print "=========================================================="
 print ""
-print "Source Zone,Dest Zone,Source Net,Dest Net, Dest Service, Action, Comment"
+print "RuleID,Source Zone,Dest Zone,Source Net,Dest Net, Dest Service, Action, Status, Comment"
 for x in rules:
-    print '%s,%s,%s,%s,%s,%s,%s' % (x["ruleSrcZone"], x["ruleDestZone"], x["ruleSrcNet"], x["ruleDestNet"], x["ruleDestService"], x["ruleAction"], x["ruleComment"])
-
+    if x["ruleSrcZone"] != prevSrcZone or x["ruleDestZone"] != prevDestZone:
+        print '\n\nSource Zone: %s, Dest Zone: %s' % (x["ruleSrcZone"], x["ruleDestZone"])
+    print '%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["ruleID"], x["ruleSrcZone"], x["ruleDestZone"], x["ruleSrcNet"], x["ruleDestNet"], x["ruleDestService"], x["ruleAction"], x["ruleStatus"], x["ruleComment"])
+    prevSrcZone=x["ruleSrcZone"]
+    prevDestZone=x["ruleDestZone"]
+    
 print ""
 print "=========================================================="
 print "================== Address Objects ======================="
@@ -212,6 +233,7 @@ print "Address Name,Zone,IP,Subnet"
 oAddrObjects = collections.OrderedDict(sorted(addrObjects.items()))
 for addr,addrFields in oAddrObjects.iteritems():
     print '%s,%s,%s,%s' % (addr, addrFields["addrZone"], addrFields["addrIP"], addrFields["addrSubnet"])
+
 print ""
 print "=========================================================="
 print "================== Address Groups ========================"
