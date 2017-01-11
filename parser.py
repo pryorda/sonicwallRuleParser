@@ -220,7 +220,7 @@ print "RuleID,Source Zone,Dest Zone,Source Net,Dest Net, Dest Service, Action, S
 for x in rules:
     if x["ruleSrcZone"] != prevSrcZone or x["ruleDestZone"] != prevDestZone:
         print '\n\nSource Zone: %s, Dest Zone: %s' % (x["ruleSrcZone"], x["ruleDestZone"])
-    print '%s,%s,%s,%s,%s,%s,%s,%s' % (x["ruleSrcZone"], x["ruleDestZone"], x["ruleSrcNet"], x["ruleDestNet"], x["ruleDestService"], x["ruleAction"], x["ruleStatus"], x["ruleComment"])
+    print '%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["ruleID"], x["ruleSrcZone"], x["ruleDestZone"], x["ruleSrcNet"], x["ruleDestNet"], x["ruleDestService"], x["ruleAction"], x["ruleStatus"], x["ruleComment"])
     prevSrcZone=x["ruleSrcZone"]
     prevDestZone=x["ruleDestZone"]
     
