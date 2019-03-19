@@ -40,6 +40,14 @@ addrZone=""
 addrType=""
 addrID=""
 
+addrFqdnObjects = {}
+addrID=""
+addrName=""
+addrType=""
+addrFqdn=""
+addrZone=""
+
+
 serviceGroups={}
 sgroupID=""
 sgroupObject=""
@@ -134,6 +142,31 @@ for line in decoded_data:
             else:
                 addrGroups[groupName].append(groupObject)
 
+
+    if re.match('^addrObjFqdn', line):
+        if re.match('^addrObjFqdnId_', line):
+            addrID, addrName = re.search('^addrObjFqdnId_(.*)=(.*)', line).groups()
+            addrName = urllib.unquote(addrName)
+        elif re.match(str("^addrObjFqdnType_"+addrID), line):
+            addrType = re.search(str("^addrObjFqdnType_"+addrID+"=(.*)"), line).group(1)
+        elif re.match(str("^addrObjFqdnZone_"+addrID), line):
+            addrZone = re.search(str("^addrObjFqdnZone_"+addrID+"=(.*)"), line).group(1)
+            if addrZone == "":
+                addrZone = "None"
+        elif re.match(str("^addrObjFqdn_"+addrID), line):
+            addrFqdn = re.search(str("^addrObjFqdn_"+addrID+"=(.*)"), line).group(1)
+        if addrID and addrName and addrType and addrZone and addrFqdn:
+            addrFqdnObjects[addrName] = {
+                "addrZone": addrZone,
+                "addrFqdn": addrFqdn,
+            }
+            addrID=""
+            addrName=""
+            addrType=""
+            addrFqdn=""
+            addrZone=""
+
+
     if re.match('^addrObj', line):
         if re.match('^addrObjId_', line):
             addrID, addrName = re.search('^addrObjId_(.*)=(.*)', line).groups()
@@ -226,13 +259,23 @@ for x in rules:
     
 print ""
 print "=========================================================="
-print "================== Address Objects ======================="
+print "================== IP Address Objects ======================="
 print "=========================================================="
 print ""
-print "Address Name,Zone,IP,Subnet"
+print "Object Name,Zone,IP,Subnet"
 oAddrObjects = collections.OrderedDict(sorted(addrObjects.items()))
-for addr,addrFields in oAddrObjects.iteritems():
+for addr, addrFields in oAddrObjects.iteritems():
     print '%s,%s,%s,%s' % (addr, addrFields["addrZone"], addrFields["addrIP"], addrFields["addrSubnet"])
+
+print ""
+print "=========================================================="
+print "================== FQDN Address Objects ======================="
+print "=========================================================="
+print ""
+print "Object Name,Zone,FQDN"
+oAddrFqdnObjects = collections.OrderedDict(sorted(addrFqdnObjects.items()))
+for addr, addrFields in oAddrFqdnObjects.iteritems():
+    print '%s,%s,%s' % (addr, addrFields["addrZone"], addrFields["addrFqdn"])
 
 print ""
 print "=========================================================="
