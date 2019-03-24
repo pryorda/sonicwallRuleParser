@@ -1,10 +1,13 @@
-#!/usr/bin/python
+#!/usr/local/bin/python
 
 import re
 import sys
 import urllib
 import collections
 import base64
+from netaddr import IPAddress
+import uuid
+
 
 with open(sys.argv[1], 'r') as f:
     read_data = f.readline()
@@ -86,6 +89,12 @@ ifaceMask=""
 ifaceVlanTag=""
 ifaceVlanParent=""
 
+# function: terraformEncode(dirty_data)
+# descrtion: you know encodes it in a friendly way for terraform and pan providers
+def terraformEncode(dirty_data):
+    remove_special = re.sub("[^A-Za-z0-9]+", '_', dirty_data)
+    clean_data = re.sub("_{2,4}", '', remove_special)
+    return clean_data
 
 for line in decoded_data:
     line = line.strip()
@@ -424,87 +433,231 @@ for line in decoded_data:
             serviceName=""
             serviceStartPort=""
             serviceEndPort=""
-
-print ""
-print "=========================================================="
-print "================== Interface Objects ====================="
-print "=========================================================="
-print ""
-print "ifaceIfNum, ifaceName, ifaceType, interfaceZone, ifaceIp, ifaceMask, ifaceVlanTag, ifaceVlanParent, ifaceComment"
-oInterfaces = collections.OrderedDict(sorted(interfaces.items()))
-for interface, interfaceFields in oInterfaces.iteritems():
-    print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (interface, interfaceFields["ifaceIfNum"], interfaceFields["ifaceName"], interfaceFields["ifaceType"], interfaceFields["interfaceZone"], interfaceFields["ifaceIp"], interfaceFields["ifaceMask"], interfaceFields["ifaceVlanTag"], interfaceFields["ifaceVlanParent"], interfaceFields["ifaceComment"])
-
+"""
 print "=========================================================="
 print "================== Firewall Rules ========================"
 print "=========================================================="
 print ""
 print "RuleID,Source Zone,Dest Zone,Source Net,Dest Net, Dest Service, Action, Status, Comment"
-for x in rules:
-    if x["ruleSrcZone"] != prevSrcZone or x["ruleDestZone"] != prevDestZone:
-        print '\n\nSource Zone: %s, Dest Zone: %s' % (x["ruleSrcZone"], x["ruleDestZone"])
-    print '%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["ruleID"], x["ruleSrcZone"], x["ruleDestZone"], x["ruleSrcNet"], x["ruleDestNet"], x["ruleDestService"], x["ruleAction"], x["ruleStatus"], x["ruleComment"])
-    prevSrcZone=x["ruleSrcZone"]
-    prevDestZone=x["ruleDestZone"]
+"""
+policy_builder=""
+with open("security-policies.tf", "w+") as security_policies:
+    for rule in rules:    
+        if ("Auto-added" in rule["ruleComment"]) or ("Auto added" in rule["ruleComment"]) or ("Disabled" in rule['ruleStatus']):
+            continue
+        if rule["ruleSrcZone"] != prevSrcZone or rule["ruleDestZone"] != prevDestZone:
+            if rules.index(rule) != 0 and policy_builder != "":
+                policy_builder += ' }'
+            policy_builder += ' resource "panos_security_policy" "' + rule["ruleSrcZone"] + "_to_" + rule["ruleDestZone"] + '" {'
+        action = ""
+        if rule['ruleAction'] == "Discard":
+            action = "drop"
+        else:
+            action = rule['ruleAction'].lower()
+        
+        src_net = ""
+        formatted_src_net = terraformEncode(rule['ruleSrcNet'])
+        if rule['ruleSrcNet'].lower() == "any":
+            src_net = "any"
+        elif rule['ruleSrcNet'] in addrGroups:
+            src_net = "${panos_address_group." + formatted_src_net + ".name}"
+        elif rule['ruleSrcNet'] in addrObjects:
+            src_net = "${panos_address_object." + formatted_src_net + ".name}"
+        
+        dest_net = ""
+        formatted_dest_net = terraformEncode(rule['ruleDestNet'])
+        if rule['ruleDestNet'].lower() == "any":
+            dest_net = "any"
+        elif rule['ruleDestNet'] in addrGroups:
+            dest_net = "${panos_address_group." + formatted_dest_net + ".name}"
+        elif rule['ruleDestNet'] in addrObjects:
+            dest_net = "${panos_address_object." + formatted_dest_net + ".name}"
+        
+        service = ""
+        formatted_service = terraformEncode(rule['ruleDestService'])
+        if rule['ruleDestService'].lower() == "any":
+            service = "any"
+        elif rule['ruleDestService'] in serviceGroups:
+            service = "${panos_service_group." + formatted_service + ".name}"
+        elif rule['ruleDestService'] in serviceObjects:
+            service = "${panos_service_object." + formatted_service + ".name}"
 
-print "=========================================================="
-print "================== Nat Rules ========================"
-print "=========================================================="
-print ""
-print "natRuleID, natOrigSrc, natOrigDest, natOrigService, natTransSrc, natTransDest, natTransService, natSrcInterface, natDestInterface, natReflexive, natStatus, natComment"
-for x in natRules:
-    print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["natRuleID"], x["natOrigSrc"], x["natOrigDest"], x["natOrigService"], x["natTransSrc"], x["natTransDest"], x["natTransService"], x["natSrcInterface"], x["natDestInterface"], x["natReflexive"], x["natStatus"], x["natComment"])
-    
-print ""
-print "=========================================================="
-print "================== IP Address Objects ===================="
-print "=========================================================="
-print ""
-print "Object Name,Zone,IP,Subnet"
-oAddrObjects = collections.OrderedDict(sorted(addrObjects.items()))
-for addr, addrFields in oAddrObjects.iteritems():
-    print '%s,%s,%s,%s' % (addr, addrFields["addrZone"], addrFields["addrIP"], addrFields["addrSubnet"])
+        policy_builder += '''
+    rule {{
+        name = "{src_net} to {dest_net} {action} {uuid}"
+        source_zones = ["${{panos_zone.{src_zone}.name}}"]
+        source_addresses = ["{src_net}"]
+        source_users = ["any"]
+        hip_profiles = ["any"]
+        destination_zones = ["${{panos_zone.{dest_zone}.name}}"]
+        destination_addresses = ["{dest_net}"]
+        applications = ["any"]
+        services = ["{service}"]
+        categories = ["any"]
+        action = "{action}"
+        description = "{description}"
+        tags = ["${{panos_administrative_tag.{src_zone}.name}}", "${{panos_administrative_tag.{dest_zone}.name}}", "${{panos_administrative_tag.MIGRATED.name}}"]
+    }}
+        '''.format(src_zone=rule["ruleSrcZone"], src_net=src_net, dest_zone=rule["ruleDestZone"], 
+                    dest_net=dest_net, service=service, action=action,
+                    description=rule["ruleComment"], uuid=str(uuid.uuid4())[:8]
+                )
+        
+        prevSrcZone=rule["ruleSrcZone"]
+        prevDestZone=rule["ruleDestZone"] 
+    policy_builder += "}"
+    security_policies.write(policy_builder)
 
-print ""
-print "=========================================================="
-print "================== FQDN Address Objects ======================="
-print "=========================================================="
-print ""
-print "Object Name,Zone,FQDN"
-oAddrFqdnObjects = collections.OrderedDict(sorted(addrFqdnObjects.items()))
-for addr, addrFields in oAddrFqdnObjects.iteritems():
-    print '%s,%s,%s' % (addr, addrFields["addrZone"], addrFields["addrFqdn"])
 
-print ""
-print "=========================================================="
-print "================== Address Groups ========================"
-print "=========================================================="
-print ""
-for group,groupObjects in addrGroups.iteritems():
-    print group
-    for groupObj in groupObjects:
-        print "\t%s" % groupObj
-    print ""
+   
+# print ""
+# print "=========================================================="
+# print "================== IP Address Objects ======================="
+# print "=========================================================="
+# print ""
+# print "Object Name,Zone,IP,Subnet"
+with open("address-objects.tf", "w+") as address_objects:
+    oAddrObjects = collections.OrderedDict(sorted(addrObjects.items()))
+    for addr, addrFields in oAddrObjects.iteritems():
+        if addrFields['addrType'] == '8':
+           continue
+        # print addr,addrFields
+        terraform_friendly_name = terraformEncode(addr)
+        cidr = IPAddress(addrFields['addrSubnet']).netmask_bits()
+        if cidr == 0:
+            cidr = 32
+        if addrFields["addrZone"] == 'None':
+            addrFields["addrZone"] = 'LAN'
+        address_objects.write('\nresource "panos_address_object" "{terraform_friendly_name}" {{ \n name        = "{terraform_friendly_name}"\n tags = ["${{panos_administrative_tag.{zone}.name}}", "${{panos_administrative_tag.MIGRATED.name}}"] \n description = "{addr} in zone: {zone}" \n value       = "{ip}/{cidr}" \n}}'.format(terraform_friendly_name=terraform_friendly_name, addr=addr, zone=addrFields["addrZone"],ip=addrFields["addrIP"], cidr=cidr))
 
-print ""
+# print ""
+# print "=========================================================="
+# print "================== FQDN Address Objects ======================="
+# print "=========================================================="
+# print ""
+# print "Object Name,Zone,FQDN"
+    oAddrFqdnObjects = collections.OrderedDict(sorted(addrFqdnObjects.items()))
+    for addr, addrFields in oAddrFqdnObjects.iteritems():
+        # print '"%s","%s","%s"' % (addr, addrFields["addrZone"], addrFields["addrFqdn"])
+        terraform_friendly_name = terraformEncode(addr)
+        address_objects.write('\nresource "panos_address_object" "{terraform_friendly_name}" {{ \n name        = "{addr}" \n type = "fqdn" \n tags = ["${{panos_administrative_tag.{zone}.name}}", "${{panos_administrative_tag.MIGRATED.name}}"] \n description = "{addr} in zone: {zone}" \n value       = "{fqdn}" \n}}'.format(terraform_friendly_name=terraform_friendly_name, addr=addr, zone=addrFields["addrZone"],fqdn=addrFields["addrFqdn"]))
+
+
+# print ""
+# print "=========================================================="
+# print "================== Address Groups ========================"
+# print "=========================================================="
+# print ""
+with open("address-groups.tf", "w+") as address_groups:
+    for group,groupObjects in addrGroups.iteritems():
+        if group in ('Firewalled IPv6 Subnets'):
+            continue
+        formatted_name = terraformEncode(group)
+        formatted_group_list = ""
+        formatted_group_depends_list = ""
+        for groupObj in groupObjects:
+            if groupObj in ('DMZ Subnets', 'WLAN Subnets', 'Firewalled IPv6 Subnets'):
+                continue
+            formatted_object_name = terraformEncode(groupObj)
+            if (groupObj in addrObjects or groupObj in addrFqdnObjects) and (groupObj not in addrGroups):
+                formatted_group_list += "\"${{panos_address_object.{0}.name}}\",".format(formatted_object_name)
+                formatted_group_depends_list += "\"panos_address_object.{0}\",".format(formatted_object_name)
+            elif groupObj in addrGroups:
+                formatted_group_list += "\"${{panos_address_group.{0}.name}}\",".format(formatted_object_name)
+                formatted_group_depends_list += "\"panos_address_group.{0}\",".format(formatted_object_name)
+        
+        # Palo Alto does not support groups with 0 objects
+        if formatted_group_list == "":
+            continue
+        address_groups.write('\nresource "panos_address_group" "{formatted_name}" {{\n  name = "{formatted_name}" \ntags = ["${{panos_administrative_tag.MIGRATED.name}}"]\n description = "{group}"\n static_addresses = [{formatted_group_list}] \n depends_on = [{formatted_group_depends_list}]}}'.format(formatted_name=formatted_name, group=group, formatted_group_list=formatted_group_list, formatted_group_depends_list=formatted_group_depends_list))
+
+"""
+print "
 print "=========================================================="
 print "================== Service Objects ======================="
 print "=========================================================="
 print ""
 print "Service Name, Start Port, EndPort, Protocol, ObjectType"
-oServiceObjects = collections.OrderedDict(sorted(serviceObjects.items()))
-for service,serviceFields in oServiceObjects.iteritems():
-    print '%s,%s-%s,%s,%s' % (service, serviceFields["serviceStartPort"], serviceFields["serviceEndPort"], serviceFields["serviceProtocol"], serviceFields["serviceType"])
+"""
+with open("service-objects.tf", "w+") as service_objects:
+    oServiceObjects = collections.OrderedDict(sorted(serviceObjects.items()))
+    for service,serviceFields in oServiceObjects.iteritems():
+        service_formatted_name = terraformEncode(service)
+        end_port = serviceFields["serviceEndPort"]
+        start_port = serviceFields["serviceStartPort"]
+        protocol = serviceFields["serviceProtocol"]
+        service_type = serviceFields["serviceType"]
+        if end_port != start_port:
+            destination_port = start_port + "-" + end_port
+        else:
+            destination_port = end_port
+        
+        if (service_type not in ('Object')) or (protocol not in ('TCP','UDP')):
+            continue
 
+        # print service,serviceFields
+        # print '%s,%s-%s,%s,%s' % (service, serviceFields["serviceStartPort"], serviceFields["serviceEndPort"], serviceFields["serviceProtocol"], serviceFields["serviceType"])
+        service_objects.write('''
+    resource "panos_service_object" "{service_formatted_name}" {{
+        name = "{service_formatted_name}"
+        tags = ["${{panos_administrative_tag.MIGRATED.name}}"]
+        description = "{service}"
+        protocol = "{protocol}"
+        source_port = "{source_port}"
+        destination_port = "{destination_port}"
+    }}
+        '''.format(service_formatted_name=service_formatted_name, service=service,
+                protocol=protocol.lower(), source_port="any", destination_port=destination_port))
+        """
+        resource "panos_service_object" "example" {
+            name = "my_service"
+            vsys = "vsys1"
+            protocol = "tcp"
+            description = "My service object"
+            source_port = "2000-2049,2051-2099"
+            destination_port = "32123"
+            tags = ["internal", "dmz"]
+        }
+"""
+                                                        
+"""
 print ""
 print "=========================================================="
 print "================== Service Groups ========================"
 print "=========================================================="
 print ""
-for serviceGroup,serviceGroupObjects in serviceGroups.iteritems():
-    print serviceGroup
-    for serviceObj in serviceGroupObjects:
-        #print serviceObj
-        print "\t%s" % serviceObj
-    print ""
+"""
+with open("service-groups.tf", "w+") as service_groups:
+    for serviceGroup,serviceGroupObjects in serviceGroups.iteritems():
+        if serviceGroup in ('Idle HF', 'Router Renumbering IPv6 Group', 'Destination Unreachable Group', "ICMP", "OSPF", "ICMP Node Information Query (IPv6) Group",
+                            "Destination Unreachable (IPv6) Group", "Time Exceeded IPv6 Group", "Parameter Problem Group", "IGMP", "ICMPv6", "Time Exceeded Group",
+                            "Parameter Problem (IPv6) Group", "Neighbor Discovery", "Ping", "Redirect Group", "Time Exceeded (IPv6) Group", "Ping6", "Router Renumbering (IPv6) Group",
+                            "ICMP Node Information Response (IPv6) Group"
+                            ):
+                continue
+        # print serviceGroup,serviceGroupObjects
+        formatted_name = terraformEncode(serviceGroup)
+        formatted_service_group_list = ""
+        formatted_service_depends_list = ""
+        for serviceObj in serviceGroupObjects:
+            formatted_object_name = terraformEncode(serviceObj)
+            if serviceObj in ("Ping 0", "Ping 8", "Ping"):
+                continue
+            if (serviceObj in serviceObjects) and (serviceObj not in serviceGroups):
+                formatted_service_group_list += "\"${{panos_service_object.{0}.name}}\",".format(formatted_object_name)
+                formatted_service_depends_list += "\"panos_service_object.{0}\",".format(formatted_object_name)
+            elif serviceObj in serviceGroups:
+                formatted_service_group_list += "\"${{panos_service_group.{0}.name}}\",".format(formatted_object_name)
+                formatted_service_depends_list += "\"panos_service_group.{0}\",".format(formatted_object_name)
+        # Palo Alto does not support groups with 0 objects
+        if formatted_service_group_list == "":
+            continue
 
+        service_groups.write('''
+        resource "panos_service_group" "{formatted_name}" {{
+            name = "{formatted_name}"
+            tags = ["${{panos_administrative_tag.MIGRATED.name}}"]
+            services = [{formatted_service_group_list}]
+            depends_on = [{formatted_service_depends_list}]
+        }}'''.format(formatted_name=formatted_name, formatted_object_name=formatted_object_name, service_group=serviceGroup, formatted_service_group_list=formatted_service_group_list, formatted_service_depends_list=formatted_service_depends_list))
+    
