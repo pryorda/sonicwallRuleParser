@@ -461,8 +461,11 @@ with open("security-policies.tf", "w+") as security_policies:
             src_net = "any"
         elif rule['ruleSrcNet'] in addrGroups:
             src_net = "${panos_address_group." + formatted_src_net + ".name}"
-        elif rule['ruleSrcNet'] in addrObjects:
+        elif rule['ruleSrcNet'] in addrObjects or rule['ruleSrcNet'] in addrFqdnObjects:
             src_net = "${panos_address_object." + formatted_src_net + ".name}"
+        else:
+            print "src_net: " + src_net + "orig: " + rule['ruleSrcNet']
+        
         
         dest_net = ""
         formatted_dest_net = terraformEncode(rule['ruleDestNet'])
@@ -470,8 +473,10 @@ with open("security-policies.tf", "w+") as security_policies:
             dest_net = "any"
         elif rule['ruleDestNet'] in addrGroups:
             dest_net = "${panos_address_group." + formatted_dest_net + ".name}"
-        elif rule['ruleDestNet'] in addrObjects:
+        elif rule['ruleDestNet'] in addrObjects or rule['ruleDestNet'] in addrFqdnObjects:
             dest_net = "${panos_address_object." + formatted_dest_net + ".name}"
+        else:
+            print "dest_net: " + dest_net + "orig: " + rule['ruleDestNet']
         
         service = ""
         formatted_service = terraformEncode(rule['ruleDestService'])
@@ -481,10 +486,13 @@ with open("security-policies.tf", "w+") as security_policies:
             service = "${panos_service_group." + formatted_service + ".name}"
         elif rule['ruleDestService'] in serviceObjects:
             service = "${panos_service_object." + formatted_service + ".name}"
-
+        else:
+            print "service: " + service + "orig: " + rule['ruleDestService']
+   
+        name = "{src_zone}:{src_net} to {dest_zone}:{dest_net} service:{service} {action}".format(src_net=src_net, dest_net=dest_net, service=service, action=action,src_zone=rule["ruleSrcZone"],dest_zone=rule["ruleDestZone"])
         policy_builder += '''
     rule {{
-        name = "{src_net} to {dest_net} {action} {uuid}"
+        name = "${{sha1(\"{name}\")}}"
         source_zones = ["${{panos_zone.{src_zone}.name}}"]
         source_addresses = ["{src_net}"]
         source_users = ["any"]
@@ -495,12 +503,12 @@ with open("security-policies.tf", "w+") as security_policies:
         services = ["{service}"]
         categories = ["any"]
         action = "{action}"
-        description = "{description}"
+        description = "{description}: {name}"
         tags = ["${{panos_administrative_tag.{src_zone}.name}}", "${{panos_administrative_tag.{dest_zone}.name}}", "${{panos_administrative_tag.MIGRATED.name}}"]
     }}
         '''.format(src_zone=rule["ruleSrcZone"], src_net=src_net, dest_zone=rule["ruleDestZone"], 
                     dest_net=dest_net, service=service, action=action,
-                    description=rule["ruleComment"], uuid=str(uuid.uuid4())[:8]
+                    description=rule["ruleComment"], name=name
                 )
         
         prevSrcZone=rule["ruleSrcZone"]
@@ -660,4 +668,7 @@ with open("service-groups.tf", "w+") as service_groups:
             services = [{formatted_service_group_list}]
             depends_on = [{formatted_service_depends_list}]
         }}'''.format(formatted_name=formatted_name, formatted_object_name=formatted_object_name, service_group=serviceGroup, formatted_service_group_list=formatted_service_group_list, formatted_service_depends_list=formatted_service_depends_list))
+
+
+
     
