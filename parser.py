@@ -448,7 +448,7 @@ with open("security-policies.tf", "w+") as security_policies:
         if rule["ruleSrcZone"] != prevSrcZone or rule["ruleDestZone"] != prevDestZone:
             if rules.index(rule) != 0 and policy_builder != "":
                 policy_builder += ' }'
-            policy_builder += ' resource "panos_security_policy" "' + rule["ruleSrcZone"] + "_to_" + rule["ruleDestZone"] + '" {'
+            policy_builder += ' resource "panos_security_policy_group" "' + rule["ruleSrcZone"] + "_to_" + rule["ruleDestZone"] + '" {'
         action = ""
         if rule['ruleAction'] == "Discard":
             action = "drop"
