@@ -97,6 +97,7 @@ def terraformEncode(dirty_data):
     return clean_data
 
 for line in decoded_data:
+    #print line
     line = line.strip()
 
     if re.match('^(iface|interface)', line):
@@ -433,6 +434,12 @@ for line in decoded_data:
             serviceName=""
             serviceStartPort=""
             serviceEndPort=""
+
+
+
+
+
+
 """
 print "=========================================================="
 print "================== Firewall Rules ========================"
