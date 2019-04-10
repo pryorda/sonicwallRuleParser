@@ -27,6 +27,21 @@ ruleStatus=""
 prevSrcZone=""
 prevDestZone=""
 
+natRules=[]
+natRuleID=""
+natOrigSrc=""
+natOrigDest=""
+natOrigService=""
+natTransSrc=""
+natTransDest=""
+natTransService=""
+natSrcInterface=""
+natDestInterface=""
+natReflexive=""
+natComment=""
+natStatus=""
+
+
 
 addrGroups={}
 groupID=""
@@ -126,6 +141,95 @@ for line in decoded_data:
             ruleAction=""
             ruleComment=""
             ruleStatus=""
+    if re.match('^natPolicy', line):
+        natField, natRuleID, natValue = re.search('^natPolicy(.*)_(\d+)=(.*)', line).groups()
+        if re.match('^natPolicyOrigSrc', line):
+            if natValue:
+                natOrigSrc = natValue
+            else:
+                natOrigSrc = "Any"
+        elif re.match('^natPolicyOrigDst', line):
+            if natValue:
+                natOrigDest = natValue
+            else:
+                natOrigDest = "Any"
+        elif re.match('^natPolicyOrigSvc', line):
+            if natValue:
+                natOrigService = natValue
+            else:
+                natOrigService = "Any"
+        elif re.match('^natPolicyTransSrc', line):
+            if natValue:
+                natTransSrc = natValue
+            else:
+                natTransSrc = "Any"
+        elif re.match('^natPolicyTransDst', line):
+            if natValue:
+                natTransDest = natValue
+            else:
+                natTransDest = "original"
+        elif re.match('^natPolicyTransSvc', line):
+            if natValue:
+                natTransService = natValue
+            else:
+                natTransService = "original"
+        elif re.match('^natPolicySrcIface', line):
+            if natValue and natValue != "-1":
+                natSrcInterface = natValue
+            else:
+                natSrcInterface = "Any"
+        elif re.match('^natPolicyDstIface', line):
+            if natValue and natValue != "-1":
+                natDestInterface = natValue
+            else:
+                natDestInterface = "Any"
+        elif re.match('^natPolicyReflexive', line):
+            if natValue == "1":
+                natReflexive = "Enabled"
+            elif natValue == "0":
+                natReflexive = "Disabled"
+        elif re.match('^natPolicyComment', line):
+            if not natValue:
+                natComment = "No Comment!"
+            else:
+                natComment = natValue
+        elif re.match('^natPolicyEnabled', line):
+            if natValue == "1":
+                natStatus = "Enabled"
+            else:
+                natStatus = "Disabled"
+        if natRuleID and natOrigSrc and natOrigDest and natOrigService and natTransSrc and natTransDest and natTransService and natSrcInterface and natDestInterface and natReflexive and natComment and natStatus:
+            # Sonicwall is goofy and has some enabled rules set to 0 when its an auto-added rule
+            if re.match('^Auto', natComment) and natStatus == "Disabled":
+                natstatus = "Enabled"
+
+            natRule= {
+                "natRuleID": natRuleID,
+                "natOrigSrc": urllib.unquote(natOrigSrc),
+                "natOrigDest": urllib.unquote(natOrigDest),
+                "natOrigService": urllib.unquote(natOrigService),
+                "natTransSrc": urllib.unquote(natTransSrc),
+                "natTransDest": urllib.unquote(natTransDest),
+                "natTransService": urllib.unquote(natTransService),
+                "natSrcInterface": urllib.unquote(natSrcInterface),
+                "natDestInterface": urllib.unquote(natDestInterface),
+                "natReflexive": urllib.unquote(natReflexive),
+                "natComment": urllib.unquote(natComment),
+                "natStatus": natStatus,
+            }
+            natRules.append(natRule)
+            natRuleID = ""
+            natOrigSrc = ""
+            natOrigDest = ""
+            natOrigService = ""
+            natTransSrc = ""
+            natTransDest = ""
+            natTransService = ""
+            natSrcInterface = ""
+            natDestInterface = ""
+            natReflexive = ""
+            natComment = ""
+            natStatus = ""
 
     if re.match('^addro_', line):
         if re.match('^addro_atomToGrp_', line):
@@ -256,6 +360,14 @@ for x in rules:
     print '%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["ruleID"], x["ruleSrcZone"], x["ruleDestZone"], x["ruleSrcNet"], x["ruleDestNet"], x["ruleDestService"], x["ruleAction"], x["ruleStatus"], x["ruleComment"])
     prevSrcZone=x["ruleSrcZone"]
     prevDestZone=x["ruleDestZone"]
+
+print "=========================================================="
+print "================== Nat Rules ========================"
+print "=========================================================="
+print ""
+print "natRuleID, natOrigSrc, natOrigDest, natOrigService, natTransSrc, natTransDest, natTransService, natSrcInterface, natDestInterface, natReflexive, natStatus, natComment"
+for x in natRules:
+    print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["natRuleID"], x["natOrigSrc"], x["natOrigDest"], x["natOrigService"], x["natTransSrc"], x["natTransDest"], x["natTransService"], x["natSrcInterface"], x["natDestInterface"], x["natReflexive"], x["natStatus"], x["natComment"])
     
 print ""
 print "=========================================================="
