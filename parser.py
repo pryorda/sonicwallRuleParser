@@ -75,9 +75,84 @@ serviceEndPort=""
 serviceProtocol=""
 serviceType=""
 
+interfaces={}
+ifaceIfNum=""
+ifaceName=""
+ifaceType=""
+interfaceZone=""
+ifaceComment=""
+ifaceIp=""
+ifaceMask=""
+ifaceVlanTag=""
+ifaceVlanParent=""
+
 
 for line in decoded_data:
     line = line.strip()
+
+    if re.match('^(iface|interface)', line):
+        if re.match('^iface_ifnum', line):
+            ifaceID, ifaceIfNum = re.search('^iface_ifnum_(\d+)=(.*)', line).groups()
+        elif re.match(str("^iface_name_"+ifaceID), line):
+            ifaceName = re.search(str("^iface_name_"+ifaceID+"=(.*)"), line).group(1)
+            ifaceName = urllib.unquote(ifaceName)
+        elif re.match(str("^iface_phys_type_"+ifaceID), line):
+            ifaceType = re.search(str("^iface_phys_type_"+ifaceID+"=(.*)"), line).group(1)
+            if ifaceType == "0":
+                ifaceType = "Phys"
+            elif ifaceType == "2":
+                ifaceType = "vlan"
+            else:
+                ifaceType = "unknown"
+        elif re.match(str("^interface_Zone_"+ifaceID), line):
+            interfaceZone = re.search(str("^interface_Zone_"+ifaceID+"=(.*)"), line).group(1)
+            interfaceZone = urllib.unquote(interfaceZone)
+        elif re.match(str("^iface_comment_"+ifaceID), line):
+            ifaceComment = re.search(str("^iface_comment_"+ifaceID+"=(.*)"), line).group(1)
+            if ifaceComment:
+                ifaceComment = urllib.unquote(ifaceComment)
+            else:
+                ifaceComment = "No Comment!"
+        elif re.match(str("^iface_lan_ip_"+ifaceID), line):
+            ifaceIp = re.search(str("^iface_lan_ip_"+ifaceID+"=(.*)"), line).group(1)
+        elif re.match(str("^iface_lan_mask_"+ifaceID), line):
+            ifaceMask = re.search(str("^iface_lan_mask_"+ifaceID+"=(.*)"), line).group(1)
+        elif re.match(str("^iface_vlan_tag_"+ifaceID), line):
+            ifaceVlanTag = re.search(str("^iface_vlan_tag_"+ifaceID+"=(.*)"), line).group(1)
+        elif re.match(str("^iface_vlan_parent_"+ifaceID), line):
+            ifaceVlanParent = re.search(str("^iface_vlan_parent_"+ifaceID+"=(.*)"), line).group(1)
+        # print ifaceID
+        # print ifaceIfNum
+        # print ifaceName
+        # print ifaceType
+        # print interfaceZone
+        # print ifaceIp
+        # print ifaceMask
+        # print ifaceVlanTag
+        # print ifaceVlanParent
+        # print ifaceComment
+        if ifaceID and ifaceIfNum and ifaceName and ifaceType and interfaceZone and ifaceComment and ifaceIp and ifaceMask and ifaceVlanTag and ifaceVlanParent:
+            interfaces[ifaceIfNum] = {
+                "ifaceIfNum": ifaceIfNum,
+                "ifaceName": ifaceName,
+                "ifaceType": ifaceType,
+                "interfaceZone": interfaceZone,
+                "ifaceComment": ifaceComment,
+                "ifaceIp": ifaceIp,
+                "ifaceMask": ifaceMask,
+                "ifaceVlanTag": ifaceVlanTag,
+                "ifaceVlanParent": ifaceVlanParent,
+            }
+            ifaceIfNum = ""
+            ifaceName = ""
+            ifaceType = ""
+            interfaceZone = ""
+            ifaceComment = ""
+            ifaceIp = ""
+            ifaceMask = ""
+            ifaceVlanTag = ""
+            ifaceVlanParent = ""
+
     if re.match('^policy', line):
         policyField, policyID, policyValue = re.search('^policy(.*)_(\d+)=(.*)', line).groups()
         if re.match('^policySrcZone', line):
@@ -141,6 +216,7 @@ for line in decoded_data:
             ruleAction=""
             ruleComment=""
             ruleStatus=""
+
     if re.match('^natPolicy', line):
         natField, natRuleID, natValue = re.search('^natPolicy(.*)_(\d+)=(.*)', line).groups()
         if re.match('^natPolicyOrigSrc', line):
@@ -349,6 +425,16 @@ for line in decoded_data:
             serviceStartPort=""
             serviceEndPort=""
 
+print ""
+print "=========================================================="
+print "================== Interface Objects ====================="
+print "=========================================================="
+print ""
+print "ifaceIfNum, ifaceName, ifaceType, interfaceZone, ifaceIp, ifaceMask, ifaceVlanTag, ifaceVlanParent, ifaceComment"
+oInterfaces = collections.OrderedDict(sorted(interfaces.items()))
+for interface, interfaceFields in oInterfaces.iteritems():
+    print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (interface, interfaceFields["ifaceIfNum"], interfaceFields["ifaceName"], interfaceFields["ifaceType"], interfaceFields["interfaceZone"], interfaceFields["ifaceIp"], interfaceFields["ifaceMask"], interfaceFields["ifaceVlanTag"], interfaceFields["ifaceVlanParent"], interfaceFields["ifaceComment"])
+
 print "=========================================================="
 print "================== Firewall Rules ========================"
 print "=========================================================="
@@ -371,7 +457,7 @@ for x in natRules:
     
 print ""
 print "=========================================================="
-print "================== IP Address Objects ======================="
+print "================== IP Address Objects ===================="
 print "=========================================================="
 print ""
 print "Object Name,Zone,IP,Subnet"
