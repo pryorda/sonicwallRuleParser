@@ -676,6 +676,64 @@ with open("service-groups.tf", "w+") as service_groups:
             depends_on = [{formatted_service_depends_list}]
         }}'''.format(formatted_name=formatted_name, formatted_object_name=formatted_object_name, service_group=serviceGroup, formatted_service_group_list=formatted_service_group_list, formatted_service_depends_list=formatted_service_depends_list))
 
+with open("nat-policies.tf", "w+") as nat_policies:
+    for natRule in natRules:
+        nat_tf_resource = ""
+        print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (natRule["natRuleID"], natRule["natOrigSrc"], natRule["natOrigDest"], natRule["natOrigService"], natRule["natTransSrc"], natRule["natTransDest"], natRule["natTransService"], natRule["natSrcInterface"], natRule["natDestInterface"], natRule["natReflexive"], natRule["natStatus"], natRule["natComment"])
+        # name = "{src_zone}:{src_net} to {dest_zone}:{dest_net} service:{service} {action}".format(src_net=src_net, dest_net=dest_net, service=service, action=action,src_zone=rule["ruleSrcZone"],dest_zone=rule["ruleDestZone"])
 
+        src_net = ""
+        src_zone = ""
+        formatted_src_net = terraformEncode(natRule['natOrigSrc'])
+        if natRule['natOrigSrc'].lower() == "any":
+            src_net = "any"
+            src_zone = "WAN" 
+        elif natRule['natOrigSrc'] in addrGroups:
+            src_net = "${panos_address_group." + formatted_src_net + ".name}"
+            src_zone = addrObjects[addrGroups[natRule['natOrigSrc']][0]]['addrZone']
+        elif natRule['natOrigSrc'] in addrObjects:
+            src_net = "${panos_address_object." + formatted_src_net + ".name}"
+            src_zone = addrObjects[natRule['natOrigSrc']]['addrZone']
+        elif natRule['natOrigSrc'] in addrFqdnObjects:
+            src_net = "${panos_address_object." + formatted_src_net + ".name}"
+            src_zone = addrFqdnObjects[natRule['natOrigSrc']]['addrZone']
+        else:
+            print "here"
+        print "src_net: " + src_net + ":" + str(src_zone) + " orig: " + natRule['natOrigSrc']
+
+        dest_net = ""
+        dest_zone = ""
+        formatted_dest_net = terraformEncode(natRule['natOrigDest'])
+        if natRule['natOrigDest'].lower() == "any":
+            dest_net = "any"
+            dest_zone = "WAN" 
+        elif natRule['natOrigDest'] in addrGroups:
+            dest_net = "${panos_address_group." + formatted_dest_net + ".name}"
+            dest_zone = addrObjects[addrGroups[natRule['natOrigDest']][0]]['addrZone']
+        elif natRule['natOrigDest'] in addrObjects:
+            dest_net = "${panos_address_object." + formatted_dest_net + ".name}"
+            dest_zone = addrObjects[natRule['natOrigDest']]['addrZone']
+        elif natRule['natOrigDest'] in addrFqdnObjects:
+            dest_net = "${panos_address_object." + formatted_dest_net + ".name}"
+            dest_zone = addrFqdnObjects[natRule['natOrigDest']]['addrZone']
+        else:
+            print "here"
+        print "dest_net: " + dest_net + ":" + str(dest_zone) + " orig: " + natRule['natOrigDest']
+
+
+
+        # resource "panos_nat_rule" "example" {
+        #     name = "my nat rule"
+        #     description = "${{sha1(\"{name}\")}}"
+        #     source_zones = ["zone1"]
+        #     destination_zone = [ "zone2" ]
+        #     to_interface = "ethernet1/3"
+        #     source_addresses = ["any"]
+        #     destination_addresses = ["any"]
+        #     sat_type = "none"
+        #     dat_type = "static"
+        #     dat_address = "my dat address object"
+        # }
+        # nat_policies.write(nat_policy)
 
     
