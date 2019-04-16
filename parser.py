@@ -99,9 +99,8 @@ def terraformEncode(dirty_data):
 for line in decoded_data:
     #print line
     line = line.strip()
-
     if re.match('^(iface|interface)', line):
-        if re.match('^iface_ifnum', line):
+        if re.match('^iface_ifnum_', line):
             ifaceID, ifaceIfNum = re.search('^iface_ifnum_(\d+)=(.*)', line).groups()
         elif re.match(str("^iface_name_"+ifaceID), line):
             ifaceName = re.search(str("^iface_name_"+ifaceID+"=(.*)"), line).group(1)
@@ -116,7 +115,10 @@ for line in decoded_data:
                 ifaceType = "unknown"
         elif re.match(str("^interface_Zone_"+ifaceID), line):
             interfaceZone = re.search(str("^interface_Zone_"+ifaceID+"=(.*)"), line).group(1)
-            interfaceZone = urllib.unquote(interfaceZone)
+            if interfaceZone:
+                interfaceZone = urllib.unquote(interfaceZone)
+            else: 
+                interfaceZone = "Unknown"
         elif re.match(str("^iface_comment_"+ifaceID), line):
             ifaceComment = re.search(str("^iface_comment_"+ifaceID+"=(.*)"), line).group(1)
             if ifaceComment:
@@ -129,8 +131,12 @@ for line in decoded_data:
             ifaceMask = re.search(str("^iface_lan_mask_"+ifaceID+"=(.*)"), line).group(1)
         elif re.match(str("^iface_vlan_tag_"+ifaceID), line):
             ifaceVlanTag = re.search(str("^iface_vlan_tag_"+ifaceID+"=(.*)"), line).group(1)
+            if not ifaceVlanTag:
+                ifaceVlanTag = 0
         elif re.match(str("^iface_vlan_parent_"+ifaceID), line):
             ifaceVlanParent = re.search(str("^iface_vlan_parent_"+ifaceID+"=(.*)"), line).group(1)
+            if not ifaceVlanParent:
+                ifaceVlanParent = 0
         # print ifaceID
         # print ifaceIfNum
         # print ifaceName
