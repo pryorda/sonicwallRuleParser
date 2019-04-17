@@ -40,6 +40,8 @@ natTransDest=""
 natTransService=""
 natSrcInterface=""
 natDestInterface=""
+natSrcZone=""
+natDestZone=""
 natReflexive=""
 natComment=""
 natStatus=""
@@ -233,96 +235,6 @@ for line in decoded_data:
             ruleComment=""
             ruleStatus=""
 
-    if re.match('^natPolicy', line):
-        natField, natRuleID, natValue = re.search('^natPolicy(.*)_(\d+)=(.*)', line).groups()
-        if re.match('^natPolicyOrigSrc', line):
-            if natValue:
-                natOrigSrc = natValue
-            else:
-                natOrigSrc = "Any"
-        elif re.match('^natPolicyOrigDst', line):
-            if natValue:
-                natOrigDest = natValue
-            else:
-                natOrigDest = "Any"
-        elif re.match('^natPolicyOrigSvc', line):
-            if natValue:
-                natOrigService = natValue
-            else:
-                natOrigService = "Any"
-        elif re.match('^natPolicyTransSrc', line):
-            if natValue:
-                natTransSrc = natValue
-            else:
-                natTransSrc = "Any"
-        elif re.match('^natPolicyTransDst', line):
-            if natValue:
-                natTransDest = natValue
-            else:
-                natTransDest = "original"
-        elif re.match('^natPolicyTransSvc', line):
-            if natValue:
-                natTransService = natValue
-            else:
-                natTransService = "original"
-        elif re.match('^natPolicySrcIface', line):
-            if natValue and natValue != "-1":
-                natSrcInterface = interfaces[natValue].get('ifaceName', "Any")
-            else:
-                natSrcInterface = "Any"
-        elif re.match('^natPolicyDstIface', line):
-            if natValue and natValue != "-1":
-                natDestInterface = interfaces[natValue].get('ifaceName', "Any")
-            else:
-                natDestInterface = "Any"
-        elif re.match('^natPolicyReflexive', line):
-            if natValue == "1":
-                natReflexive = "Enabled"
-            elif natValue == "0":
-                natReflexive = "Disabled"
-        elif re.match('^natPolicyComment', line):
-            if not natValue:
-                natComment = "No Comment!"
-            else:
-                natComment = natValue
-        elif re.match('^natPolicyEnabled', line):
-            if natValue == "1":
-                natStatus = "Enabled"
-            else:
-                natStatus = "Disabled"
-        if natRuleID and natOrigSrc and natOrigDest and natOrigService and natTransSrc and natTransDest and natTransService and natSrcInterface and natDestInterface and natReflexive and natComment and natStatus:
-            # Sonicwall is goofy and has some enabled rules set to 0 when its an auto-added rule
-            if re.match('^Auto', natComment) and natStatus == "Disabled":
-                natstatus = "Enabled"
-
-            natRule= {
-                "natRuleID": natRuleID,
-                "natOrigSrc": urllib.unquote(natOrigSrc),
-                "natOrigDest": urllib.unquote(natOrigDest),
-                "natOrigService": urllib.unquote(natOrigService),
-                "natTransSrc": urllib.unquote(natTransSrc),
-                "natTransDest": urllib.unquote(natTransDest),
-                "natTransService": urllib.unquote(natTransService),
-                "natSrcInterface": urllib.unquote(natSrcInterface),
-                "natDestInterface": urllib.unquote(natDestInterface),
-                "natReflexive": urllib.unquote(natReflexive),
-                "natComment": urllib.unquote(natComment),
-                "natStatus": natStatus,
-            }
-            natRules.append(natRule)
-            natRuleID = ""
-            natOrigSrc = ""
-            natOrigDest = ""
-            natOrigService = ""
-            natTransSrc = ""
-            natTransDest = ""
-            natTransService = ""
-            natSrcInterface = ""
-            natDestInterface = ""
-            natReflexive = ""
-            natComment = ""
-            natStatus = ""
-
     if re.match('^addro_', line):
         if re.match('^addro_atomToGrp_', line):
             groupID, groupObject = re.search('^addro_atomToGrp_(\d+)=(.*)', line).groups()
@@ -441,10 +353,113 @@ for line in decoded_data:
             serviceStartPort=""
             serviceEndPort=""
 
+    if re.match('^natPolicy', line):
+        natField, natRuleID, natValue = re.search('^natPolicy(.*)_(\d+)=(.*)', line).groups()
+        if re.match('^natPolicyOrigSrc', line):
+            if natValue:
+                natOrigSrc = natValue
+            else:
+                natOrigSrc = "Any"
+        elif re.match('^natPolicyOrigDst', line):
+            if natValue:
+                natOrigDest = natValue
+            else:
+                natOrigDest = "Any"
+        elif re.match('^natPolicyOrigSvc', line):
+            if natValue:
+                natOrigService = natValue
+            else:
+                natOrigService = "Any"
+        elif re.match('^natPolicyTransSrc', line):
+            if natValue:
+                natTransSrc = natValue
+            else:
+                natTransSrc = "Any"
+        elif re.match('^natPolicyTransDst', line):
+            if natValue:
+                natTransDest = natValue
+            else:
+                natTransDest = "original"
+        elif re.match('^natPolicyTransSvc', line):
+            if natValue:
+                natTransService = natValue
+            else:
+                natTransService = "original"
+        elif re.match('^natPolicySrcIface', line):
+            if natValue and natValue != "-1":
+                natSrcInterface = interfaces[natValue].get('ifaceName', "Not Found")
+            else:
+                natSrcInterface = "Any"
+            if natValue == '-1':
+                natSrcZone == "Not Found"
+            else:
+                natSrcZone = interfaces[natValue].get('interfaceZone', "Not Found")
+        elif re.match('^natPolicyDstIface', line):
+            if natValue and natValue != "-1":
+                natDestInterface = interfaces[natValue].get('ifaceName', "Not Found")
+            else:
+                natDestInterface = "Any"
+            if natValue == '-1':
+                natDestZone == "Not Found"
+            else:
+                natDestZone = interfaces[natValue].get('interfaceZone', "Not Found")
+        elif re.match('^natPolicyReflexive', line):
+            if natValue == "1":
+                natReflexive = "Enabled"
+            elif natValue == "0":
+                natReflexive = "Disabled"
+        elif re.match('^natPolicyComment', line):
+            if not natValue:
+                natComment = "No Comment!"
+            else:
+                natComment = natValue
+        elif re.match('^natPolicyEnabled', line):
+            if natValue == "1":
+                natStatus = "Enabled"
+            else:
+                natStatus = "Disabled"
+        if natRuleID and natOrigSrc and natOrigDest and natOrigService and natTransSrc and natTransDest and natTransService and natSrcInterface and natDestInterface and natReflexive and natComment and natStatus:
+            # Sonicwall is goofy and has some enabled rules set to 0 when its an auto-added rule
+            if re.match('^Auto', natComment) and natStatus == "Disabled":
+                natstatus = "Enabled"
+            
+            if natSrcZone == '':
+                natSrcZone = "Not Found"
+            
+            if natDestZone == '':
+                natDestZone = "Not Found"
 
-
-
-
+            natRule= {
+                "natRuleID": natRuleID,
+                "natOrigSrc": urllib.unquote(natOrigSrc),
+                "natOrigDest": urllib.unquote(natOrigDest),
+                "natOrigService": urllib.unquote(natOrigService),
+                "natTransSrc": urllib.unquote(natTransSrc),
+                "natTransDest": urllib.unquote(natTransDest),
+                "natTransService": urllib.unquote(natTransService),
+                "natSrcInterface": urllib.unquote(natSrcInterface),
+                "natDestInterface": urllib.unquote(natDestInterface),
+                "natSrcZone": urllib.unquote(natSrcZone),
+                "natDestZone": urllib.unquote(natDestZone),
+                "natReflexive": urllib.unquote(natReflexive),
+                "natComment": urllib.unquote(natComment),
+                "natStatus": natStatus,
+            }
+            natRules.append(natRule)
+            natRuleID = ""
+            natOrigSrc = ""
+            natOrigDest = ""
+            natOrigService = ""
+            natTransSrc = ""
+            natTransDest = ""
+            natTransService = ""
+            natSrcInterface = ""
+            natDestInterface = ""
+            natSrcZone = ""
+            natDestZone = ""
+            natReflexive = ""
+            natComment = ""
+            natStatus = ""
 
 """
 print "=========================================================="
@@ -683,48 +698,53 @@ with open("service-groups.tf", "w+") as service_groups:
         }}'''.format(formatted_name=formatted_name, formatted_object_name=formatted_object_name, service_group=serviceGroup, formatted_service_group_list=formatted_service_group_list, formatted_service_depends_list=formatted_service_depends_list))
 
 with open("nat-policies.tf", "w+") as nat_policies:
-    for natRule in natRules:
-        nat_tf_resource = ""
-        print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (natRule["natRuleID"], natRule["natOrigSrc"], natRule["natOrigDest"], natRule["natOrigService"], natRule["natTransSrc"], natRule["natTransDest"], natRule["natTransService"], natRule["natSrcInterface"], natRule["natDestInterface"], natRule["natReflexive"], natRule["natStatus"], natRule["natComment"])
-        # name = "{src_zone}:{src_net} to {dest_zone}:{dest_net} service:{service} {action}".format(src_net=src_net, dest_net=dest_net, service=service, action=action,src_zone=rule["ruleSrcZone"],dest_zone=rule["ruleDestZone"])
+    for x in natRules:
+        if "Management" in x['natComment']:
+            continue
+        if x['natSrcZone'] == 'Not Found':
+            if x['natOrigSrc'] in addrGroups:
+                x['natSrcZone'] = addrObjects.get(addrGroups[x['natOrigSrc']][0], {'addrZone': 'Unknown'}).get('addrZone', 'Unknown')
+            elif x['natOrigSrc'] in addrObjects:
+                x['natSrcZone'] = addrObjects[x['natOrigSrc']]['addrZone']
+            elif x['natOrigSrc'] in addrFqdnObjects:
+                x['natSrcZone'] = addrFqdnObjects[x['natOrigSrc']]['addrZone']
+            else:
+                x['natSrcZone'] = "Unknown"
 
-        src_net = ""
-        src_zone = ""
-        formatted_src_net = terraformEncode(natRule['natOrigSrc'])
-        if natRule['natOrigSrc'].lower() == "any":
-            src_net = "any"
-            src_zone = "WAN" 
-        elif natRule['natOrigSrc'] in addrGroups:
-            src_net = "${panos_address_group." + formatted_src_net + ".name}"
-            src_zone = addrObjects[addrGroups[natRule['natOrigSrc']][0]]['addrZone']
-        elif natRule['natOrigSrc'] in addrObjects:
-            src_net = "${panos_address_object." + formatted_src_net + ".name}"
-            src_zone = addrObjects[natRule['natOrigSrc']]['addrZone']
-        elif natRule['natOrigSrc'] in addrFqdnObjects:
-            src_net = "${panos_address_object." + formatted_src_net + ".name}"
-            src_zone = addrFqdnObjects[natRule['natOrigSrc']]['addrZone']
-        else:
-            print "here"
-        print "src_net: " + src_net + ":" + str(src_zone) + " orig: " + natRule['natOrigSrc']
+        # One more attempt to look up SrcZone
+        if x['natSrcZone'] == 'Unknown':
+            if x['natOrigDest'] in addrGroups:
+                x['natSrcZone'] = addrObjects.get(addrGroups[x['natOrigDest']][0], {'addrZone': 'Unknown'}).get('addrZone', 'Unknown')
+            elif x['natOrigDest'] in addrObjects:
+                x['natSrcZone'] = addrObjects[x['natOrigDest']]['addrZone']
+            elif x['natOrigDest'] in addrFqdnObjects:
+                x['natSrcZone'] = addrFqdnObjects[x['natOrigDest']]['addrZone']
+            else:
+                x['natSrcZone'] = "Unknown"
 
-        dest_net = ""
-        dest_zone = ""
-        formatted_dest_net = terraformEncode(natRule['natOrigDest'])
-        if natRule['natOrigDest'].lower() == "any":
-            dest_net = "any"
-            dest_zone = "WAN" 
-        elif natRule['natOrigDest'] in addrGroups:
-            dest_net = "${panos_address_group." + formatted_dest_net + ".name}"
-            dest_zone = addrObjects[addrGroups[natRule['natOrigDest']][0]]['addrZone']
-        elif natRule['natOrigDest'] in addrObjects:
-            dest_net = "${panos_address_object." + formatted_dest_net + ".name}"
-            dest_zone = addrObjects[natRule['natOrigDest']]['addrZone']
-        elif natRule['natOrigDest'] in addrFqdnObjects:
-            dest_net = "${panos_address_object." + formatted_dest_net + ".name}"
-            dest_zone = addrFqdnObjects[natRule['natOrigDest']]['addrZone']
-        else:
-            print "here"
-        print "dest_net: " + dest_net + ":" + str(dest_zone) + " orig: " + natRule['natOrigDest']
+        if x['natDestZone'] == 'Not Found':
+            if x['natTransDest'] in addrGroups:
+                x['natDestZone'] = addrObjects.get(addrGroups[x['natTransDest']][0], {'addrZone': 'Unknown'}).get('addrZone', 'Unknown')
+            elif x['natTransDest'] in addrObjects:
+                x['natDestZone'] = addrObjects[x['natTransDest']]['addrZone']
+            elif x['natTransDest'] in addrFqdnObjects:
+                x['natDestZone'] = addrFqdnObjects[x['natTransDest']]['addrZone']
+            else:
+                x['natDestZone'] = "Unknown"
+
+        # One more attempt to look up DestZone
+        if x['natDestZone'] == 'Unknown':
+            if x['natTransSrc'] in addrGroups:
+                x['natDestZone'] = addrObjects.get(addrGroups[x['natTransSrc']][0], {'addrZone': 'Unknown'}).get('addrZone', 'Unknown')
+            elif x['natTransSrc'] in addrObjects:
+                x['natDestZone'] = addrObjects[x['natTransSrc']]['addrZone']
+            elif x['natTransSrc'] in addrFqdnObjects:
+                x['natDestZone'] = addrFqdnObjects[x['natTransSrc']]['addrZone']
+            else:
+                x['natDestZone'] = "Unknown"
+
+        print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["natRuleID"], x["natOrigSrc"], x["natTransSrc"], x["natOrigService"], x["natOrigDest"], x["natTransDest"], x["natTransService"], x["natSrcInterface"], x["natSrcZone"], x["natDestInterface"], x["natDestZone"], x["natReflexive"], x["natStatus"], x["natComment"])
+
 
 
 
