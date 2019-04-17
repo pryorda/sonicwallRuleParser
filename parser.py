@@ -267,12 +267,12 @@ for line in decoded_data:
                 natTransService = "original"
         elif re.match('^natPolicySrcIface', line):
             if natValue and natValue != "-1":
-                natSrcInterface = natValue
+                natSrcInterface = interfaces[natValue].get('ifaceName', "Any")
             else:
                 natSrcInterface = "Any"
         elif re.match('^natPolicyDstIface', line):
             if natValue and natValue != "-1":
-                natDestInterface = natValue
+                natDestInterface = interfaces[natValue].get('ifaceName', "Any")
             else:
                 natDestInterface = "Any"
         elif re.match('^natPolicyReflexive', line):
