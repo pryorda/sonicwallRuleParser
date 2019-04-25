@@ -524,7 +524,7 @@ with open("security-policies.tf", "w+") as security_policies:
         services = ["{service}"]
         categories = ["any"]
         action = "{action}"
-        description = "{description}: {name}"
+        description = "{name} : {description}"
         tags = ["${{panos_administrative_tag.{src_zone}.name}}", "${{panos_administrative_tag.{dest_zone}.name}}", "${{panos_administrative_tag.MIGRATED.name}}"]
     }}
         '''.format(src_zone=rule["ruleSrcZone"], src_net=src_net, dest_zone=rule["ruleDestZone"], 
@@ -710,7 +710,7 @@ with open("nat-policies.tf", "w+") as nat_policies:
         nat_comment = x["natComment"]
         
         print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["natRuleID"], x["natOrigSrc"], x["natTransSrc"], x["natOrigService"], x["natOrigDest"], x["natTransDest"], x["natTransService"], x["natSrcInterface"], x["natSrcZone"], x["natDestInterface"], x["natDestZone"], x["natReflexive"], x["natStatus"], x["natComment"])
-        name = '%s:%s:%s to %s:%s:%s port %s:%s' % (nat_src_zone, nat_orig_src, nat_trans_src, nat_dest_zone, nat_orig_dest, nat_trans_dest, nat_orig_svc,nat_trans_svc)
+        name = '%s:%s:%s:%s to %s:%s:%s:%s port %s:%s' % (nat_src_zone, nat_orig_src, nat_trans_src, nat_src_iface, nat_dest_zone, nat_orig_dest, nat_trans_dest, nat_dest_iface, nat_orig_svc,nat_trans_svc)
         formatted_name = terraformEncode(name)
 
         nat_tf_resource = ''' 
@@ -728,7 +728,7 @@ resource "panos_nat_rule" "{formatted_name}" {{
         nat_tf_resource += '\tdestination_zone = "${{panos_zone.{nat_dest_zone}.name}}" \n'.format(nat_dest_zone=formatted_nat_dest_zone)
         # Update once you have the interfaces added
         # nat_tf_resource += '''\tto_interface = "${{panos_ethernet_interface or vlan interface}}"
-        nat_tf_resource += '\tto_interface = "ethernet1/2"\n'
+        nat_tf_resource += '\tto_interface = "ethernet1/3"\n'
         
         # Look up orig src objects
         orig_src = ""
@@ -761,7 +761,7 @@ resource "panos_nat_rule" "{formatted_name}" {{
             nat_tf_resource += '\tsat_type = "static-ip"\n'
             nat_tf_resource += '\tsat_address_type = "translated-address"\n'
             # nat_tf_resource += '\tsat_interface         = "ethernet1/2"\n'
-            nat_tf_resource += '\tsat_static_translated_address = ["{trans_src}"]\n'.format(trans_src=trans_src)
+            nat_tf_resource += '\tsat_static_translated_address = "{trans_src}"\n'.format(trans_src=trans_src)
         else:
             nat_tf_resource += '\tsat_type = "none"\n'
         
@@ -794,7 +794,7 @@ resource "panos_nat_rule" "{formatted_name}" {{
         # Set Dest Address Translation
         if trans_dest != "original":
             nat_tf_resource += '\tdat_type = "static"\n'
-            nat_tf_resource += '\tdat_address = ["{trans_dest}"]\n'.format(trans_dest=trans_dest)
+            nat_tf_resource += '\tdat_address = "{trans_dest}"\n'.format(trans_dest=trans_dest)
         
         # Disable the rule
         if nat_status != "Enabled":
@@ -805,6 +805,40 @@ resource "panos_nat_rule" "{formatted_name}" {{
             nat_tf_resource += '\tsat_static_bi_directional = true\n'
         
         # Add ports here
+        service = ""
+        formatted_nat_orig_svc = terraformEncode(nat_orig_svc)
+        if nat_orig_svc.lower() == "any":
+            service = "any"
+        elif nat_orig_svc in serviceGroups:
+            service = "${panos_service_group." + formatted_nat_orig_svc + ".name}"
+        elif nat_orig_svc in serviceObjects:
+            service = "${panos_service_object." + formatted_nat_orig_svc + ".name}"
+        else:
+            print "service: " + service + "orig: " + nat_orig_svc
+        
+        if nat_orig_svc.lower() != "any":
+            nat_tf_resource += '\tservice = "{service}"\n'.format(service=service)
+        
+        trans_svc = ""
+        formatted_nat_trans_svc = terraformEncode(nat_trans_svc)
+        if nat_trans_svc.lower() == "original":
+            trans_svc = "original"
+        elif nat_trans_svc in serviceGroups:
+            # Keeping this here so if in the future they allow service groups in the dat_port.
+            # When blank or not set it uses the original ports.
+            # https://docs.paloaltonetworks.com/pan-os/8-0/pan-os-web-interface-help/policies/policies-nat/nat-translated-packet-tab.html
+            # trans_svc = "${panos_service_group." + formatted_nat_trans_svc + ".destination_port}"
+            # setting to original so it gets skipped.
+            # Annoying.
+            trans_svc = "original"
+        elif nat_trans_svc in serviceObjects:
+            trans_svc = "${panos_service_object." + formatted_nat_trans_svc + ".destination_port}"
+        else:
+            print "service: " + service + "orig: " + nat_trans_svc
+        
+        if trans_svc.lower() != "original":
+            nat_tf_resource += '\tdat_port = "{trans_svc}"\n'.format(trans_svc=trans_svc)
+
         
         nat_tf_resource += '}\n'
         nat_policies.write(nat_tf_resource)
