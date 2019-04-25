@@ -374,7 +374,7 @@ for line in decoded_data:
             if natValue:
                 natTransSrc = natValue
             else:
-                natTransSrc = "Any"
+                natTransSrc = "original"
         elif re.match('^natPolicyTransDst', line):
             if natValue:
                 natTransDest = natValue
@@ -461,13 +461,6 @@ for line in decoded_data:
             natComment = ""
             natStatus = ""
 
-"""
-print "=========================================================="
-print "================== Firewall Rules ========================"
-print "=========================================================="
-print ""
-print "RuleID,Source Zone,Dest Zone,Source Net,Dest Net, Dest Service, Action, Status, Comment"
-"""
 policy_builder=""
 with open("security-policies.tf", "w+") as security_policies:
     for rule in rules:    
@@ -544,14 +537,6 @@ with open("security-policies.tf", "w+") as security_policies:
     policy_builder += "}"
     security_policies.write(policy_builder)
 
-
-   
-# print ""
-# print "=========================================================="
-# print "================== IP Address Objects ======================="
-# print "=========================================================="
-# print ""
-# print "Object Name,Zone,IP,Subnet"
 with open("address-objects.tf", "w+") as address_objects:
     oAddrObjects = collections.OrderedDict(sorted(addrObjects.items()))
     for addr, addrFields in oAddrObjects.iteritems():
@@ -566,24 +551,12 @@ with open("address-objects.tf", "w+") as address_objects:
             addrFields["addrZone"] = 'LAN'
         address_objects.write('\nresource "panos_address_object" "{terraform_friendly_name}" {{ \n name        = "{terraform_friendly_name}"\n tags = ["${{panos_administrative_tag.{zone}.name}}", "${{panos_administrative_tag.MIGRATED.name}}"] \n description = "{addr} in zone: {zone}" \n value       = "{ip}/{cidr}" \n}}'.format(terraform_friendly_name=terraform_friendly_name, addr=addr, zone=addrFields["addrZone"],ip=addrFields["addrIP"], cidr=cidr))
 
-# print ""
-# print "=========================================================="
-# print "================== FQDN Address Objects ======================="
-# print "=========================================================="
-# print ""
-# print "Object Name,Zone,FQDN"
     oAddrFqdnObjects = collections.OrderedDict(sorted(addrFqdnObjects.items()))
     for addr, addrFields in oAddrFqdnObjects.iteritems():
         # print '"%s","%s","%s"' % (addr, addrFields["addrZone"], addrFields["addrFqdn"])
         terraform_friendly_name = terraformEncode(addr)
         address_objects.write('\nresource "panos_address_object" "{terraform_friendly_name}" {{ \n name        = "{addr}" \n type = "fqdn" \n tags = ["${{panos_administrative_tag.{zone}.name}}", "${{panos_administrative_tag.MIGRATED.name}}"] \n description = "{addr} in zone: {zone}" \n value       = "{fqdn}" \n}}'.format(terraform_friendly_name=terraform_friendly_name, addr=addr, zone=addrFields["addrZone"],fqdn=addrFields["addrFqdn"]))
 
-
-# print ""
-# print "=========================================================="
-# print "================== Address Groups ========================"
-# print "=========================================================="
-# print ""
 with open("address-groups.tf", "w+") as address_groups:
     for group,groupObjects in addrGroups.iteritems():
         if group in ('Firewalled IPv6 Subnets'):
@@ -607,14 +580,6 @@ with open("address-groups.tf", "w+") as address_groups:
             continue
         address_groups.write('\nresource "panos_address_group" "{formatted_name}" {{\n  name = "{formatted_name}" \ntags = ["${{panos_administrative_tag.MIGRATED.name}}"]\n description = "{group}"\n static_addresses = [{formatted_group_list}] \n depends_on = [{formatted_group_depends_list}]}}'.format(formatted_name=formatted_name, group=group, formatted_group_list=formatted_group_list, formatted_group_depends_list=formatted_group_depends_list))
 
-"""
-print "
-print "=========================================================="
-print "================== Service Objects ======================="
-print "=========================================================="
-print ""
-print "Service Name, Start Port, EndPort, Protocol, ObjectType"
-"""
 with open("service-objects.tf", "w+") as service_objects:
     oServiceObjects = collections.OrderedDict(sorted(serviceObjects.items()))
     for service,serviceFields in oServiceObjects.iteritems():
@@ -631,8 +596,6 @@ with open("service-objects.tf", "w+") as service_objects:
         if (service_type not in ('Object')) or (protocol not in ('TCP','UDP')):
             continue
 
-        # print service,serviceFields
-        # print '%s,%s-%s,%s,%s' % (service, serviceFields["serviceStartPort"], serviceFields["serviceEndPort"], serviceFields["serviceProtocol"], serviceFields["serviceType"])
         service_objects.write('''
     resource "panos_service_object" "{service_formatted_name}" {{
         name = "{service_formatted_name}"
@@ -644,25 +607,7 @@ with open("service-objects.tf", "w+") as service_objects:
     }}
         '''.format(service_formatted_name=service_formatted_name, service=service,
                 protocol=protocol.lower(), source_port="any", destination_port=destination_port))
-        """
-        resource "panos_service_object" "example" {
-            name = "my_service"
-            vsys = "vsys1"
-            protocol = "tcp"
-            description = "My service object"
-            source_port = "2000-2049,2051-2099"
-            destination_port = "32123"
-            tags = ["internal", "dmz"]
-        }
-"""
-                                                        
-"""
-print ""
-print "=========================================================="
-print "================== Service Groups ========================"
-print "=========================================================="
-print ""
-"""
+
 with open("service-groups.tf", "w+") as service_groups:
     for serviceGroup,serviceGroupObjects in serviceGroups.iteritems():
         if serviceGroup in ('Idle HF', 'Router Renumbering IPv6 Group', 'Destination Unreachable Group', "ICMP", "OSPF", "ICMP Node Information Query (IPv6) Group",
@@ -698,9 +643,16 @@ with open("service-groups.tf", "w+") as service_groups:
         }}'''.format(formatted_name=formatted_name, formatted_object_name=formatted_object_name, service_group=serviceGroup, formatted_service_group_list=formatted_service_group_list, formatted_service_depends_list=formatted_service_depends_list))
 
 with open("nat-policies.tf", "w+") as nat_policies:
+    exclusions = ["Management", "IKE NAT Policy", "Stack NAT Policy", " U0 ", " U1 ", "OSPF"]
     for x in natRules:
-        if "Management" in x['natComment']:
-            continue
+        skip = ""
+        for exclusion in exclusions:
+            if exclusion in x['natComment']:
+                skip = True
+
+        if skip == True:
+            continue 
+
         if x['natSrcZone'] == 'Not Found':
             if x['natOrigSrc'] in addrGroups:
                 x['natSrcZone'] = addrObjects.get(addrGroups[x['natOrigSrc']][0], {'addrZone': 'Unknown'}).get('addrZone', 'Unknown')
@@ -743,23 +695,120 @@ with open("nat-policies.tf", "w+") as nat_policies:
             else:
                 x['natDestZone'] = "Unknown"
 
+        nat_orig_src = x["natOrigSrc"]
+        nat_trans_src = x["natTransSrc"]
+        nat_orig_svc = x["natOrigService"]
+        nat_orig_dest = x["natOrigDest"]
+        nat_trans_dest = x["natTransDest"]
+        nat_trans_svc = x["natTransService"]
+        nat_src_iface = x["natSrcInterface"]
+        nat_src_zone = x["natSrcZone"]
+        nat_dest_iface = x["natDestInterface"]
+        nat_dest_zone = x["natDestZone"]
+        nat_reflexive = ["natReflexive"]
+        nat_status = x["natStatus"]
+        nat_comment = x["natComment"]
+        
         print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["natRuleID"], x["natOrigSrc"], x["natTransSrc"], x["natOrigService"], x["natOrigDest"], x["natTransDest"], x["natTransService"], x["natSrcInterface"], x["natSrcZone"], x["natDestInterface"], x["natDestZone"], x["natReflexive"], x["natStatus"], x["natComment"])
+        name = '%s:%s:%s to %s:%s:%s port %s:%s' % (nat_src_zone, nat_orig_src, nat_trans_src, nat_dest_zone, nat_orig_dest, nat_trans_dest, nat_orig_svc,nat_trans_svc)
+        formatted_name = terraformEncode(name)
 
+        nat_tf_resource = ''' 
+resource "panos_nat_rule" "{formatted_name}" {{
+    name = "${{sha1(\"{name}\")}}"
+    description = "{name} : {nat_comment}"\n'''.format(
+                name=name, 
+                formatted_name=formatted_name,
+                nat_comment=nat_comment
+            )
 
+        formatted_nat_src_zone = terraformEncode(nat_src_zone)
+        nat_tf_resource += '\tsource_zones = [ "${{panos_zone.{nat_src_zone}.name}}" ] \n'.format(nat_src_zone=formatted_nat_src_zone)
+        formatted_nat_dest_zone = terraformEncode(nat_dest_zone)
+        nat_tf_resource += '\tdestination_zone = "${{panos_zone.{nat_dest_zone}.name}}" \n'.format(nat_dest_zone=formatted_nat_dest_zone)
+        # Update once you have the interfaces added
+        # nat_tf_resource += '''\tto_interface = "${{panos_ethernet_interface or vlan interface}}"
+        nat_tf_resource += '\tto_interface = "ethernet1/2"\n'
+        
+        # Look up orig src objects
+        orig_src = ""
+        sat_type = ""
+        formatted_nat_orig_src = terraformEncode(nat_orig_src)
+        if nat_orig_src.lower() == "any":
+            orig_src = "any"
+        elif nat_orig_src in addrGroups:
+            orig_src = "${panos_address_group." + formatted_nat_orig_src + ".name}"
+        elif nat_orig_src in addrObjects or nat_orig_src in addrFqdnObjects:
+            orig_src = "${panos_address_object." + formatted_nat_orig_src + ".name}"
+        else:
+            print "orig_src: " + orig_src + "orig: " + nat_orig_src
+        nat_tf_resource += '\tsource_addresses = ["{orig_src}"]\n'.format(orig_src=orig_src)
+        
+        # Look up translated src objects
+        trans_src = ""
+        formatted_nat_trans_src = terraformEncode(nat_trans_src)
+        if nat_trans_src.lower() == "original":
+            trans_src = "original"
+        elif nat_trans_src in addrGroups:
+            trans_src = "${panos_address_group." + formatted_nat_trans_src + ".name}"
+        elif nat_trans_src in addrObjects or nat_trans_src in addrFqdnObjects:
+            trans_src = "${panos_address_object." + formatted_nat_trans_src + ".name}"
+        else:
+            print "trans_src: " + trans_src + "orig: " + nat_trans_src
 
+        # Set Source Address Translation if needed
+        if trans_src != "original":
+            nat_tf_resource += '\tsat_type = "static-ip"\n'
+            nat_tf_resource += '\tsat_address_type = "translated-address"\n'
+            # nat_tf_resource += '\tsat_interface         = "ethernet1/2"\n'
+            nat_tf_resource += '\tsat_static_translated_address = ["{trans_src}"]\n'.format(trans_src=trans_src)
+        else:
+            nat_tf_resource += '\tsat_type = "none"\n'
+        
+        # Look up orig dest objects
+        orig_dest = ""
+        dat_type = ""
+        formatted_nat_orig_dest = terraformEncode(nat_orig_dest)
+        if nat_orig_dest.lower() == "any":
+            orig_dest = "any"
+        elif nat_orig_dest in addrGroups:
+            orig_dest = "${panos_address_group." + formatted_nat_orig_dest + ".name}"
+        elif nat_orig_dest in addrObjects or nat_orig_dest in addrFqdnObjects:
+            orig_dest = "${panos_address_object." + formatted_nat_orig_dest + ".name}"
+        else:
+            print "orig_dest: " + orig_dest + "orig: " + nat_orig_dest
+        nat_tf_resource += '\tdestination_addresses = ["{orig_dest}"]\n'.format(orig_dest=orig_dest)
 
-        # resource "panos_nat_rule" "example" {
-        #     name = "my nat rule"
-        #     description = "${{sha1(\"{name}\")}}"
-        #     source_zones = ["zone1"]
-        #     destination_zone = [ "zone2" ]
-        #     to_interface = "ethernet1/3"
-        #     source_addresses = ["any"]
-        #     destination_addresses = ["any"]
-        #     sat_type = "none"
-        #     dat_type = "static"
-        #     dat_address = "my dat address object"
-        # }
-        # nat_policies.write(nat_policy)
+        # Look up translated dest objects
+        trans_dest = ""
+        formatted_nat_trans_dest = terraformEncode(nat_trans_dest)
+        if nat_trans_dest.lower() == "original":
+            trans_dest = "original"
+        elif nat_trans_dest in addrGroups:
+            trans_dest = "${panos_address_group." + formatted_nat_trans_dest + ".name}"
+        elif nat_trans_dest in addrObjects or nat_trans_dest in addrFqdnObjects:
+            trans_dest = "${panos_address_object." + formatted_nat_trans_dest + ".name}"
+        else:
+            print "trans_dest: " + trans_dest + "orig: " + nat_trans_dest
+
+        # Set Dest Address Translation
+        if trans_dest != "original":
+            nat_tf_resource += '\tdat_type = "static"\n'
+            nat_tf_resource += '\tdat_address = ["{trans_dest}"]\n'.format(trans_dest=trans_dest)
+        
+        # Disable the rule
+        if nat_status != "Enabled":
+            nat_tf_resource += '\tdisabled = true\n'
+        
+        # Bidirectional nat 
+        if nat_reflexive == "Enabled":
+            nat_tf_resource += '\tsat_static_bi_directional = true\n'
+        
+        # Add ports here
+        
+        nat_tf_resource += '}\n'
+        nat_policies.write(nat_tf_resource)
+
+        
 
     
