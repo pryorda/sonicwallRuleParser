@@ -113,7 +113,10 @@ for line in decoded_data:
                 ifaceType = "Phys"
             elif ifaceType == "2":
                 ifaceType = "vlan"
+            elif ifaceType == "8":
+                ifaceType = "tunnel"
             else:
+                print ifaceType
                 ifaceType = "unknown"
         elif re.match(str("^interface_Zone_"+ifaceID), line):
             interfaceZone = re.search(str("^interface_Zone_"+ifaceID+"=(.*)"), line).group(1)
@@ -150,6 +153,7 @@ for line in decoded_data:
         # print ifaceVlanParent
         # print ifaceComment
         if ifaceID and ifaceIfNum and ifaceName and ifaceType and interfaceZone and ifaceComment and ifaceIp and ifaceMask and ifaceVlanTag and ifaceVlanParent:
+            print 'ifaceName %s ifaceType %s' % (ifaceName, ifaceType)
             interfaces[ifaceIfNum] = {
                 "ifaceIfNum": ifaceIfNum,
                 "ifaceName": ifaceName,
@@ -170,6 +174,7 @@ for line in decoded_data:
             ifaceMask = ""
             ifaceVlanTag = ""
             ifaceVlanParent = ""
+
 
     if re.match('^policy', line):
         policyField, policyID, policyValue = re.search('^policy(.*)_(\d+)=(.*)', line).groups()
@@ -709,7 +714,7 @@ with open("nat-policies.tf", "w+") as nat_policies:
         nat_status = x["natStatus"]
         nat_comment = x["natComment"]
         
-        print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["natRuleID"], x["natOrigSrc"], x["natTransSrc"], x["natOrigService"], x["natOrigDest"], x["natTransDest"], x["natTransService"], x["natSrcInterface"], x["natSrcZone"], x["natDestInterface"], x["natDestZone"], x["natReflexive"], x["natStatus"], x["natComment"])
+        # print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["natRuleID"], x["natOrigSrc"], x["natTransSrc"], x["natOrigService"], x["natOrigDest"], x["natTransDest"], x["natTransService"], x["natSrcInterface"], x["natSrcZone"], x["natDestInterface"], x["natDestZone"], x["natReflexive"], x["natStatus"], x["natComment"])
         name = '%s:%s:%s:%s to %s:%s:%s:%s port %s:%s' % (nat_src_zone, nat_orig_src, nat_trans_src, nat_src_iface, nat_dest_zone, nat_orig_dest, nat_trans_dest, nat_dest_iface, nat_orig_svc,nat_trans_svc)
         formatted_name = terraformEncode(name)
 
@@ -843,6 +848,73 @@ resource "panos_nat_rule" "{formatted_name}" {{
         nat_tf_resource += '}\n'
         nat_policies.write(nat_tf_resource)
 
+with open("interfaces.tf", "w+") as interfaces_resources:
+    oInterfaces = collections.OrderedDict(sorted(interfaces.items()))
+    for interface, interfaceFields in oInterfaces.iteritems():
+        interface_num = interfaceFields["ifaceIfNum"]
+        interface_name = urllib.unquote(interfaceFields["ifaceName"])
+        interface_type = interfaceFields["ifaceType"]
+        interface_zone = urllib.unquote(interfaceFields["interfaceZone"])
+        interface_ip = interfaceFields["ifaceIp"]
+        interface_mask = interfaceFields["ifaceMask"]
+        interface_vlan_tag = interfaceFields["ifaceVlanTag"]
+        interface_vlan_parent = interfaceFields["ifaceVlanParent"]
+        interface_comment = urllib.unquote(interfaceFields["ifaceComment"])
+
+        if interface_ip == "0.0.0.0" and interface_mask == "255.255.255.0":
+            continue
         
+        interface_friendly_name = terraformEncode(interface_name)
+        if interface_type == "vlan":
+            print '''
+resource "panos_vlan_interface" "{interface_friendly_name}" {{
+    name = "vlan.{interface_vlan_tag}"
+    mode = "layer3"
+    static_ips = ["{interface_ip}/{interface_mask}"]
+    comment = "{interface_comment}"
+}}
+            '''.format(
+                    interface_friendly_name=interface_friendly_name, 
+                    interface_vlan_tag=interface_vlan_tag, 
+                    interface_ip=interface_ip, 
+                    interface_mask=interface_mask,
+                    interface_comment=interface_comment
+                )
+        elif ifaceType == "tunnel":
+            print '''
+resource "panos_vlan_interface" "{interface_friendly_name}" {{
+    name = "vlan.{interface_vlan_tag}"
+    mode = "layer3"
+    static_ips = ["{interface_ip}/{interface_mask}"]
+    comment = "{interface_comment}"
+}}
+            '''.format(
+                    interface_friendly_name=interface_friendly_name, 
+                    interface_ip=interface_ip, 
+                    interface_mask=interface_mask,
+                    interface_comment=interface_comment
+                )
+"""
+
+
+        print '%s,%s,%s,%s,%s,%s,%s,%s,%s' % (interface_num, interface_name, interface_type, interface_zone, interface_ip, interface_mask, interface_vlan_tag, interface_vlan_parent, interface_comment)
+
+
+resource "panos_vlan_interface" "example" {
+    name = "vlan.17"
+    vsys = "vsys1"
+    mode = "layer3"
+    static_ips = ["10.1.1.1/24"]
+    comment = "Configured for internal traffic"
+}
+resource "panos_ethernet_interface" "example1" {
+    name = "ethernet1/3"
+    vsys = "vsys1"
+    mode = "layer3"
+    static_ips = ["10.1.1.1/24"]
+    comment = "Configured for internal traffic"
+}
+"""
+
 
     
