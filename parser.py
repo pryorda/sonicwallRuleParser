@@ -90,6 +90,7 @@ ifaceIp=""
 ifaceMask=""
 ifaceVlanTag=""
 ifaceVlanParent=""
+ifaceGateway=""
 
 # function: terraformEncode(dirty_data)
 # descrtion: you know encodes it in a friendly way for terraform and pan providers
@@ -99,7 +100,7 @@ def terraformEncode(dirty_data):
     return clean_data
 
 for line in decoded_data:
-    #print line
+    print line
     line = line.strip()
     if re.match('^(iface|interface)', line):
         if re.match('^iface_ifnum_', line):
@@ -141,6 +142,19 @@ for line in decoded_data:
             ifaceVlanParent = re.search(str("^iface_vlan_parent_"+ifaceID+"=(.*)"), line).group(1)
             if not ifaceVlanParent:
                 ifaceVlanParent = 0
+        elif re.match(str("^iface_static_ip_"+ifaceID), line):
+            # Override the lan_ip if static ip set and not 0.0.0.0
+            ipValue = re.search(str("^iface_static_ip_"+ifaceID+"=(.*)"), line).group(1)
+            if ipValue != "" and ipValue != "0.0.0.0":
+                ifaceIp = ipValue
+        elif re.match(str("^iface_static_mask_"+ifaceID), line):
+            maskValue = re.search(str("^iface_static_mask_"+ifaceID+"=(.*)"), line).group(1)
+            # Override the lan_ip if static ip set and not 0.0.0.0
+            if maskValue != "" and maskValue != "255.255.255.0":
+                ifaceMask = maskValue
+        elif re.match(str("^iface_static_gateway_"+ifaceID), line):
+            # Override the lan_ip if static ip set and not 0.0.0.0
+             ifaceGateway = re.search(str("^iface_static_gateway_"+ifaceID+"=(.*)"), line).group(1)
         # print ifaceID
         # print ifaceIfNum
         # print ifaceName
@@ -162,6 +176,7 @@ for line in decoded_data:
                 "ifaceMask": ifaceMask,
                 "ifaceVlanTag": ifaceVlanTag,
                 "ifaceVlanParent": ifaceVlanParent,
+                "ifaceGateway": ifaceGateway
             }
             ifaceIfNum = ""
             ifaceName = ""
@@ -172,6 +187,7 @@ for line in decoded_data:
             ifaceMask = ""
             ifaceVlanTag = ""
             ifaceVlanParent = ""
+            ifaceGateway = ""
 
 
     if re.match('^policy', line):
@@ -895,16 +911,17 @@ resource "panos_tunnel_interface" "{interface_friendly_name}" {{
                     interface_comment=interface_comment
                 )
         elif interface_type == "Phys":
+            parsed_interface_id = re.match('[A-Z](\d+)', interface_name).group(1)
             interface_tf_resource = '''
 resource "panos_ethernet_interface" "{interface_friendly_name}" {{
-    name = "{interface_name}"
+    name = "ethernet1/{parsed_interface_id}"
     mode = "layer3"
     static_ips = ["{interface_ip}/{interface_mask}"]
     comment = "{interface_comment}"
 }}
             '''.format(
                     interface_friendly_name=interface_friendly_name,
-                    interface_name=interface_name,
+                    parsed_interface_id=parsed_interface_id,
                     interface_ip=interface_ip, 
                     interface_mask=interface_mask,
                     interface_comment=interface_comment
