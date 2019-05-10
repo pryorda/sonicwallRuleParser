@@ -14,7 +14,7 @@ with open(sys.argv[1], 'r') as f:
 f.close()
 
 decoded_data = base64.b64decode(read_data)
-decoded_data =  decoded_data.split("&")
+decoded_data = decoded_data.split("&")
 
 rules=[]
 ruleID=""
@@ -116,7 +116,6 @@ for line in decoded_data:
             elif ifaceType == "8":
                 ifaceType = "tunnel"
             else:
-                print ifaceType
                 ifaceType = "unknown"
         elif re.match(str("^interface_Zone_"+ifaceID), line):
             interfaceZone = re.search(str("^interface_Zone_"+ifaceID+"=(.*)"), line).group(1)
@@ -153,7 +152,6 @@ for line in decoded_data:
         # print ifaceVlanParent
         # print ifaceComment
         if ifaceID and ifaceIfNum and ifaceName and ifaceType and interfaceZone and ifaceComment and ifaceIp and ifaceMask and ifaceVlanTag and ifaceVlanParent:
-            print 'ifaceName %s ifaceType %s' % (ifaceName, ifaceType)
             interfaces[ifaceIfNum] = {
                 "ifaceIfNum": ifaceIfNum,
                 "ifaceName": ifaceName,
@@ -860,13 +858,14 @@ with open("interfaces.tf", "w+") as interfaces_resources:
         interface_vlan_tag = interfaceFields["ifaceVlanTag"]
         interface_vlan_parent = interfaceFields["ifaceVlanParent"]
         interface_comment = urllib.unquote(interfaceFields["ifaceComment"])
+        interface_tf_resource = ''
 
         if interface_ip == "0.0.0.0" and interface_mask == "255.255.255.0":
             continue
         
         interface_friendly_name = terraformEncode(interface_name)
         if interface_type == "vlan":
-            print '''
+            interface_tf_resource = '''
 resource "panos_vlan_interface" "{interface_friendly_name}" {{
     name = "vlan.{interface_vlan_tag}"
     mode = "layer3"
@@ -880,22 +879,40 @@ resource "panos_vlan_interface" "{interface_friendly_name}" {{
                     interface_mask=interface_mask,
                     interface_comment=interface_comment
                 )
-        elif ifaceType == "tunnel":
-            print '''
-resource "panos_vlan_interface" "{interface_friendly_name}" {{
-    name = "vlan.{interface_vlan_tag}"
+
+        elif interface_type == "tunnel":
+            interface_tf_resource = '''
+resource "panos_tunnel_interface" "{interface_friendly_name}" {{
+    name = "tunnel.{interface_name}"
+    static_ips = ["{interface_ip}/{interface_mask}"]
+    comment = "{interface_comment}"
+}}
+            '''.format(
+                    interface_friendly_name=interface_friendly_name,
+                    interface_name=interface_name,
+                    interface_ip=interface_ip,
+                    interface_mask=interface_mask,
+                    interface_comment=interface_comment
+                )
+        elif interface_type == "Phys":
+            interface_tf_resource = '''
+resource "panos_ethernet_interface" "{interface_friendly_name}" {{
+    name = "{interface_name}"
     mode = "layer3"
     static_ips = ["{interface_ip}/{interface_mask}"]
     comment = "{interface_comment}"
 }}
             '''.format(
-                    interface_friendly_name=interface_friendly_name, 
+                    interface_friendly_name=interface_friendly_name,
+                    interface_name=interface_name,
                     interface_ip=interface_ip, 
                     interface_mask=interface_mask,
                     interface_comment=interface_comment
                 )
+        
+        if interface_tf_resource != "": 
+            interfaces_resources.write(interface_tf_resource)
 """
-
 
         print '%s,%s,%s,%s,%s,%s,%s,%s,%s' % (interface_num, interface_name, interface_type, interface_zone, interface_ip, interface_mask, interface_vlan_tag, interface_vlan_parent, interface_comment)
 
