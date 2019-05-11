@@ -91,6 +91,8 @@ ifaceMask=""
 ifaceVlanTag=""
 ifaceVlanParent=""
 ifaceGateway=""
+ifaceStaticIp = ""
+ifaceStaticMask = ""
 
 # function: terraformEncode(dirty_data)
 # descrtion: you know encodes it in a friendly way for terraform and pan providers
@@ -100,7 +102,7 @@ def terraformEncode(dirty_data):
     return clean_data
 
 for line in decoded_data:
-    print line
+    # print line
     line = line.strip()
     if re.match('^(iface|interface)', line):
         if re.match('^iface_ifnum_', line):
@@ -143,29 +145,17 @@ for line in decoded_data:
             if not ifaceVlanParent:
                 ifaceVlanParent = 0
         elif re.match(str("^iface_static_ip_"+ifaceID), line):
-            # Override the lan_ip if static ip set and not 0.0.0.0
-            ipValue = re.search(str("^iface_static_ip_"+ifaceID+"=(.*)"), line).group(1)
-            if ipValue != "" and ipValue != "0.0.0.0":
-                ifaceIp = ipValue
+            ifaceStaticIp = re.search(str("^iface_static_ip_"+ifaceID+"=(.*)"), line).group(1)
         elif re.match(str("^iface_static_mask_"+ifaceID), line):
-            maskValue = re.search(str("^iface_static_mask_"+ifaceID+"=(.*)"), line).group(1)
-            # Override the lan_ip if static ip set and not 0.0.0.0
-            if maskValue != "" and maskValue != "255.255.255.0":
-                ifaceMask = maskValue
+            ifaceStaticMask = re.search(str("^iface_static_mask_"+ifaceID+"=(.*)"), line).group(1)
         elif re.match(str("^iface_static_gateway_"+ifaceID), line):
-            # Override the lan_ip if static ip set and not 0.0.0.0
-             ifaceGateway = re.search(str("^iface_static_gateway_"+ifaceID+"=(.*)"), line).group(1)
-        # print ifaceID
-        # print ifaceIfNum
-        # print ifaceName
-        # print ifaceType
-        # print interfaceZone
-        # print ifaceIp
-        # print ifaceMask
-        # print ifaceVlanTag
-        # print ifaceVlanParent
-        # print ifaceComment
+            ifaceGateway = re.search(str("^iface_static_gateway_"+ifaceID+"=(.*)"), line).group(1)
+        
         if ifaceID and ifaceIfNum and ifaceName and ifaceType and interfaceZone and ifaceComment and ifaceIp and ifaceMask and ifaceVlanTag and ifaceVlanParent:
+            if ifaceStaticMask != "255.255.255.0" and ifaceStaticIp != "0.0.0.0":
+                ifaceIp = ifaceStaticIp
+                ifaceMask = ifaceStaticMask
+            
             interfaces[ifaceIfNum] = {
                 "ifaceIfNum": ifaceIfNum,
                 "ifaceName": ifaceName,
@@ -188,7 +178,8 @@ for line in decoded_data:
             ifaceVlanTag = ""
             ifaceVlanParent = ""
             ifaceGateway = ""
-
+            ifaceStaticMask = ""
+            ifaceStaticIp = ""
 
     if re.match('^policy', line):
         policyField, policyID, policyValue = re.search('^policy(.*)_(\d+)=(.*)', line).groups()
