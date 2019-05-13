@@ -871,7 +871,8 @@ with open("interfaces.tf", "w+") as interfaces_resources:
             continue
         
         interface_mask_cidr = IPAddress(interface_mask).netmask_bits() 
-        
+        parsed_interface_id = re.match('[A-Z](\d+)', interface_name).group(1)
+
         interface_friendly_name = terraformEncode(interface_name)
         if interface_type == "vlan" or interface_name == "X0":
             interface_tf_resource = '''
@@ -891,19 +892,18 @@ resource "panos_vlan_interface" "{interface_friendly_name}" {{
         elif interface_type == "tunnel":
             interface_tf_resource = '''
 resource "panos_tunnel_interface" "{interface_friendly_name}" {{
-    name = "tunnel.{interface_name}"
+    name = "tunnel.{parsed_interface_id}"
     static_ips = ["{interface_ip}/{interface_mask_cidr}"]
     comment = "{interface_comment}"
 }}
             '''.format(
                     interface_friendly_name=interface_friendly_name,
-                    interface_name=interface_name,
+                    parsed_interface_id=parsed_interface_id,
                     interface_ip=interface_ip,
                     interface_mask_cidr=interface_mask_cidr,
                     interface_comment=interface_comment
                 )
         elif interface_type == "Phys":
-            parsed_interface_id = re.match('[A-Z](\d+)', interface_name).group(1)
             interface_tf_resource = '''
 resource "panos_ethernet_interface" "{interface_friendly_name}" {{
     name = "ethernet1/{parsed_interface_id}"
