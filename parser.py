@@ -871,7 +871,7 @@ with open("interfaces.tf", "w+") as interfaces_resources:
             continue
         
         interface_friendly_name = terraformEncode(interface_name)
-        if interface_type == "vlan":
+        if interface_type == "vlan" or interface_name == "X0":
             interface_tf_resource = '''
 resource "panos_vlan_interface" "{interface_friendly_name}" {{
     name = "vlan.{interface_vlan_tag}"
