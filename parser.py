@@ -875,7 +875,6 @@ with open("interfaces.tf", "w+") as interfaces_resources:
             interface_tf_resource = '''
 resource "panos_vlan_interface" "{interface_friendly_name}" {{
     name = "vlan.{interface_vlan_tag}"
-    mode = "layer3"
     static_ips = ["{interface_ip}/{interface_mask}"]
     comment = "{interface_comment}"
 }}
