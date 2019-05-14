@@ -739,7 +739,7 @@ resource "panos_nat_rule" "{formatted_name}" {{
         nat_tf_resource += '\tdestination_zone = "${{panos_zone.{nat_dest_zone}.name}}" \n'.format(nat_dest_zone=formatted_nat_dest_zone)
         # Update once you have the interfaces added
         # nat_tf_resource += '''\tto_interface = "${{panos_ethernet_interface or vlan interface}}"
-        nat_tf_resource += '\tto_interface = "ethernet1/3"\n'
+        # nat_tf_resource += '\tto_interface = "ethernet1/3"\n'
         
         # Look up orig src objects
         orig_src = ""
@@ -768,10 +768,16 @@ resource "panos_nat_rule" "{formatted_name}" {{
             print "trans_src: " + trans_src + "orig: " + nat_trans_src
 
         # Set Source Address Translation if needed
-        if trans_src != "original":
+        if nat_orig_src.lower() == "any" and nat_orig_dest.lower() == "any":
+            nat_tf_resource += '\tsat_type          = "dynamic-ip-and-port"\n'
+            nat_tf_resource += '\tsat_address_type      = "interface-address"\n'
+            if re.match('^[A-Z]\d+$', nat_dest_iface):
+                nat_tf_resource += '\tsat_interface         = "${panos_ethernet_interface.' + nat_dest_iface + '.name}"\n'
+            elif re.match('^[A-Z]\d+_V\d+$'):
+                nat_tf_resource += '\tsat_interface         = "${panos_vlan_interface.' + nat_dest_iface + '.name}"\n' 
+        elif trans_src != "original":
             nat_tf_resource += '\tsat_type = "static-ip"\n'
             nat_tf_resource += '\tsat_address_type = "translated-address"\n'
-            # nat_tf_resource += '\tsat_interface         = "ethernet1/2"\n'
             nat_tf_resource += '\tsat_static_translated_address = "{trans_src}"\n'.format(trans_src=trans_src)
         else:
             nat_tf_resource += '\tsat_type = "none"\n'
