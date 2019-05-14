@@ -9,6 +9,7 @@ from netaddr import IPAddress
 import uuid
 
 
+
 with open(sys.argv[1], 'r') as f:
     read_data = f.readline()
 f.close()
@@ -869,8 +870,8 @@ with open("interfaces.tf", "w+") as interfaces_resources:
 
         if interface_ip == "0.0.0.0" and interface_mask == "255.255.255.0":
             continue
-        
-        interface_mask_cidr = IPAddress(interface_mask).netmask_bits() 
+
+        interface_mask_cidr = IPAddress(interface_mask).netmask_bits()
         parsed_interface_id = re.match('[A-Z](\d+)', interface_name).group(1)
 
         interface_friendly_name = terraformEncode(interface_name)
