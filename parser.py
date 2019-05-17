@@ -773,12 +773,19 @@ resource "panos_nat_rule" "{formatted_name}" {{
             nat_tf_resource += '\tsat_address_type      = "interface-address"\n'
             if re.match('^[A-Z]\d+$', nat_dest_iface):
                 nat_tf_resource += '\tsat_interface         = "${panos_ethernet_interface.' + nat_dest_iface + '.name}"\n'
-            elif re.match('^[A-Z]\d+_V\d+$'):
+                nat_tf_resource += '\tdepends_on = ["${panos_ethernet_interface.' + nat_dest_iface + '.name}"]\n'
+            elif re.match('^[A-Z]\d+_V\d+$', nat_dest_iface):
                 nat_tf_resource += '\tsat_interface         = "${panos_vlan_interface.' + nat_dest_iface + '.name}"\n' 
+                nat_tf_resource += '\tdepends_on = ["${panos_vlan_interface.' + nat_dest_iface + '.name}]"\n'
         elif trans_src != "original":
-            nat_tf_resource += '\tsat_type = "static-ip"\n'
-            nat_tf_resource += '\tsat_address_type = "translated-address"\n'
-            nat_tf_resource += '\tsat_static_translated_address = "{trans_src}"\n'.format(trans_src=trans_src)
+            if "panos_address_group" in orig_src:
+                nat_tf_resource += '\tsat_type          = "dynamic-ip-and-port"\n'
+                nat_tf_resource += '\tsat_address_type = "translated-address"\n'
+                nat_tf_resource += '\tsat_translated_addresses = ["{trans_src}"]\n'.format(trans_src=trans_src)
+            else:
+                nat_tf_resource += '\tsat_type = "static-ip"\n'
+                nat_tf_resource += '\tsat_address_type = "translated-address"\n'
+                nat_tf_resource += '\tsat_static_translated_address = "{trans_src}"\n'.format(trans_src=trans_src)
         else:
             nat_tf_resource += '\tsat_type = "none"\n'
         
