@@ -773,10 +773,10 @@ resource "panos_nat_rule" "{formatted_name}" {{
             nat_tf_resource += '\tsat_address_type      = "interface-address"\n'
             if re.match('^[A-Z]\d+$', nat_dest_iface):
                 nat_tf_resource += '\tsat_interface         = "${panos_ethernet_interface.' + nat_dest_iface + '.name}"\n'
-                nat_tf_resource += '\tdepends_on = ["${panos_ethernet_interface.' + nat_dest_iface + '.name}"]\n'
+                nat_tf_resource += '\tdepends_on = ["panos_ethernet_interface.' + nat_dest_iface + '"]\n'
             elif re.match('^[A-Z]\d+_V\d+$', nat_dest_iface):
                 nat_tf_resource += '\tsat_interface         = "${panos_vlan_interface.' + nat_dest_iface + '.name}"\n' 
-                nat_tf_resource += '\tdepends_on = ["${panos_vlan_interface.' + nat_dest_iface + '.name}]"\n'
+                nat_tf_resource += '\tdepends_on = ["panos_vlan_interface.' + nat_dest_iface + '"]"\n'
         elif trans_src != "original":
             if "panos_address_group" in orig_src:
                 nat_tf_resource += '\tsat_type          = "dynamic-ip-and-port"\n'
@@ -889,6 +889,8 @@ with open("interfaces.tf", "w+") as interfaces_resources:
 
         interface_friendly_name = terraformEncode(interface_name)
         if interface_type == "vlan" or interface_name == "X0":
+            if interface_vlan_tag == "0":
+                interface_vlan_tag = "1"
             interface_tf_resource = '''
 resource "panos_vlan_interface" "{interface_friendly_name}" {{
     name = "vlan.{interface_vlan_tag}"
