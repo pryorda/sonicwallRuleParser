@@ -475,7 +475,8 @@ for line in decoded_data:
 policy_builder=""
 with open("security-policies.tf", "w+") as security_policies:
     for rule in rules:    
-        if ("Auto-added" in rule["ruleComment"]) or ("Auto added" in rule["ruleComment"]) or ("Disabled" in rule['ruleStatus']):
+        if ("Auto-added" in rule["ruleComment"]) or ("Auto added" in rule["ruleComment"]) or ("Disabled" in rule['ruleStatus']) \
+            or (("MULTICAST" in rule["ruleDestZone"]) or ("MULTICAST" in rule["ruleSrcZone"])):
             continue
         if rule["ruleSrcZone"] != prevSrcZone or rule["ruleDestZone"] != prevDestZone:
             if rules.index(rule) != 0 and policy_builder != "":
