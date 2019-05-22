@@ -576,7 +576,7 @@ with open("address-groups.tf", "w+") as address_groups:
         formatted_group_list = ""
         formatted_group_depends_list = ""
         for groupObj in groupObjects:
-            if groupObj in ('DMZ Subnets', 'WLAN Subnets', 'Firewalled IPv6 Subnets'):
+            if groupObj in ('DMZ Subnets', 'WLAN Subnets', 'Firewalled IPv6 Subnets', 'Management_Subnets'):
                 continue
             formatted_object_name = terraformEncode(groupObj)
             if (groupObj in addrObjects or groupObj in addrFqdnObjects) and (groupObj not in addrGroups):
@@ -633,7 +633,7 @@ with open("service-groups.tf", "w+") as service_groups:
         formatted_service_depends_list = ""
         for serviceObj in serviceGroupObjects:
             formatted_object_name = terraformEncode(serviceObj)
-            if serviceObj in ("Ping 0", "Ping 8", "Ping"):
+            if serviceObj in ("Ping 0", "Ping 8", "Ping", "ICMP"):
                 continue
             if (serviceObj in serviceObjects) and (serviceObj not in serviceGroups):
                 formatted_service_group_list += "\"${{panos_service_object.{0}.name}}\",".format(formatted_object_name)
