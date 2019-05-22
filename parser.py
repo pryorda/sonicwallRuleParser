@@ -736,7 +736,10 @@ resource "panos_nat_rule" "{formatted_name}" {{
         formatted_nat_src_zone = terraformEncode(nat_src_zone)
         nat_tf_resource += '\tsource_zones = [ "${{panos_zone.{nat_src_zone}.name}}" ] \n'.format(nat_src_zone=formatted_nat_src_zone)
         formatted_nat_dest_zone = terraformEncode(nat_dest_zone)
-        nat_tf_resource += '\tdestination_zone = "${{panos_zone.{nat_dest_zone}.name}}" \n'.format(nat_dest_zone=formatted_nat_dest_zone)
+        if nat_src_zone.lower() == "wan":
+            nat_tf_resource += '\tdestination_zone = "${{panos_zone.{nat_src_zone}.name}}" \n'.format(nat_src_zone=formatted_nat_src_zone)
+        else: 
+            nat_tf_resource += '\tdestination_zone = "${{panos_zone.{nat_dest_zone}.name}}" \n'.format(nat_dest_zone=formatted_nat_dest_zone)
         # Update once you have the interfaces added
         # nat_tf_resource += '''\tto_interface = "${{panos_ethernet_interface or vlan interface}}"
         # nat_tf_resource += '\tto_interface = "ethernet1/3"\n'
