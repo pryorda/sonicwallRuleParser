@@ -576,7 +576,7 @@ with open("address-groups.tf", "w+") as address_groups:
         formatted_group_list = ""
         formatted_group_depends_list = ""
         for groupObj in groupObjects:
-            if groupObj in ('DMZ Subnets', 'WLAN Subnets', 'Firewalled IPv6 Subnets', 'Management_Subnets'):
+            if groupObj in ('DMZ Subnets', 'WLAN Subnets', 'Firewalled IPv6 Subnets', 'Management Subnets'):
                 continue
             formatted_object_name = terraformEncode(groupObj)
             if (groupObj in addrObjects or groupObj in addrFqdnObjects) and (groupObj not in addrGroups):
