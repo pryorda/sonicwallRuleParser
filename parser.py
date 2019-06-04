@@ -655,7 +655,7 @@ with open("service-groups.tf", "w+") as service_groups:
         }}'''.format(formatted_name=formatted_name, formatted_object_name=formatted_object_name, service_group=serviceGroup, formatted_service_group_list=formatted_service_group_list, formatted_service_depends_list=formatted_service_depends_list))
 
 with open("nat-policies.tf", "w+") as nat_policies:
-    exclusions = ["Management", "IKE NAT Policy", "Stack NAT Policy", " U0 ", " U1 ", "OSPF", "Rip"]
+    exclusions = ["Management", "IKE NAT Policy", "Stack NAT Policy", " U0 ", " U1 ", "OSPF", "Rip", "SSL VPN IP POOL"]
     for x in natRules:
         skip = ""
         for exclusion in exclusions:
