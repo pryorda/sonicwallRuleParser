@@ -2,16 +2,16 @@
 
 import re
 import sys
-import urllib
+from urllib.parse import unquote
 import collections
 import base64
 
 with open(sys.argv[1], 'r') as f:
-    read_data = f.readline()
+    read_data = f.read()
 f.close()
 
 decoded_data = base64.b64decode(read_data)
-decoded_data =  decoded_data.split("&")
+decoded_data =  read_data.split('\n')
 
 rules=[]
 ruleID=""
@@ -96,7 +96,7 @@ for line in decoded_data:
             ifaceID, ifaceIfNum = re.search('^iface_ifnum_(\d+)=(.*)', line).groups()
         elif re.match(str("^iface_name_"+ifaceID), line):
             ifaceName = re.search(str("^iface_name_"+ifaceID+"=(.*)"), line).group(1)
-            ifaceName = urllib.unquote(ifaceName)
+            ifaceName = unquote(ifaceName)
         elif re.match(str("^iface_phys_type_"+ifaceID), line):
             ifaceType = re.search(str("^iface_phys_type_"+ifaceID+"=(.*)"), line).group(1)
             if ifaceType == "0":
@@ -108,13 +108,13 @@ for line in decoded_data:
         elif re.match(str("^interface_Zone_"+ifaceID), line):
             interfaceZone = re.search(str("^interface_Zone_"+ifaceID+"=(.*)"), line).group(1)
             if interfaceZone:
-                interfaceZone = urllib.unquote(interfaceZone)
+                interfaceZone = unquote(interfaceZone)
             else: 
                 interfaceZone = "Unknown"
         elif re.match(str("^iface_comment_"+ifaceID), line):
             ifaceComment = re.search(str("^iface_comment_"+ifaceID+"=(.*)"), line).group(1)
             if ifaceComment:
-                ifaceComment = urllib.unquote(ifaceComment)
+                ifaceComment = unquote(ifaceComment)
             else:
                 ifaceComment = "No Comment!"
         elif re.match(str("^iface_lan_ip_"+ifaceID), line):
@@ -208,12 +208,12 @@ for line in decoded_data:
                 "ruleID": policyID,
                 "ruleSrcZone": ruleSrcZone,
                 "ruleDestZone": ruleDestZone,
-                "ruleSrcNet": urllib.unquote(ruleSrcNet),
-                "ruleDestNet": urllib.unquote(ruleDestNet),
-                "ruleDestService": urllib.unquote(ruleDestService),
+                "ruleSrcNet": unquote(ruleSrcNet),
+                "ruleDestNet": unquote(ruleDestNet),
+                "ruleDestService": unquote(ruleDestService),
                 "ruleAction": ruleAction,
                 "ruleStatus": ruleStatus,
-                "ruleComment": urllib.unquote(ruleComment)
+                "ruleComment": unquote(ruleComment)
             }
             rules.append(rule)
             ruleSrcZone=""
@@ -228,12 +228,12 @@ for line in decoded_data:
     if re.match('^addro_', line):
         if re.match('^addro_atomToGrp_', line):
             groupID, groupObject = re.search('^addro_atomToGrp_(\d+)=(.*)', line).groups()
-            groupObject = urllib.unquote(groupObject)
+            groupObject = unquote(groupObject)
             nextPattern="^addro_grpToGrp_"+groupID
             nextGroupPattern=nextPattern+'=(.*)'
         elif re.match(nextPattern, line):
             groupName = re.search(nextGroupPattern, line).group(1)
-            groupName = urllib.unquote(groupName)
+            groupName = unquote(groupName)
             if groupName not in addrGroups:
                 addrGroups[groupName] = []
                 addrGroups[groupName].append(groupObject)
@@ -244,7 +244,7 @@ for line in decoded_data:
     if re.match('^addrObjFqdn', line):
         if re.match('^addrObjFqdnId_', line):
             addrID, addrName = re.search('^addrObjFqdnId_(.*)=(.*)', line).groups()
-            addrName = urllib.unquote(addrName)
+            addrName = unquote(addrName)
         elif re.match(str("^addrObjFqdnType_"+addrID), line):
             addrType = re.search(str("^addrObjFqdnType_"+addrID+"=(.*)"), line).group(1)
         elif re.match(str("^addrObjFqdnZone_"+addrID), line):
@@ -268,7 +268,7 @@ for line in decoded_data:
     if re.match('^addrObj', line):
         if re.match('^addrObjId_', line):
             addrID, addrName = re.search('^addrObjId_(.*)=(.*)', line).groups()
-            addrName = urllib.unquote(addrName)
+            addrName = unquote(addrName)
         elif re.match(str("^addrObjType_"+addrID), line):
             addrType = re.search(str("^addrObjType_"+addrID+"=(.*)"), line).group(1)
         elif re.match(str("^addrObjZone_"+addrID), line):
@@ -296,12 +296,12 @@ for line in decoded_data:
     if re.match('^so_', line):
         if re.match('^so_atomToGrp_', line):
             sgroupID, sgroupObject = re.search('^so_atomToGrp_(\d+)=(.*)', line).groups()
-            sgroupObject = urllib.unquote(sgroupObject)
+            sgroupObject = unquote(sgroupObject)
             nextsPattern="^so_grpToGrp_"+sgroupID
             nextsGroupPattern=nextsPattern+'=(.*)'
         elif re.match(nextsPattern, line):
             sgroupName = re.search(nextsGroupPattern, line).group(1)
-            sgroupName = urllib.unquote(sgroupName)
+            sgroupName = unquote(sgroupName)
             if sgroupName not in serviceGroups:
                 serviceGroups[sgroupName] = []
                 serviceGroups[sgroupName].append(sgroupObject)
@@ -311,7 +311,7 @@ for line in decoded_data:
     if re.match('^svcObj', line):
         if re.match('^svcObjId_', line):
             serviceID, serviceName = re.search('^svcObjId_(.*)=(.*)', line).groups()
-            serviceName = urllib.unquote(serviceName)
+            serviceName = unquote(serviceName)
         elif re.match(str("^svcObjType_"+serviceID), line):
             serviceType = re.search(str("^svcObjType_"+serviceID+"=(.*)"), line).group(1)
         elif re.match(str("^svcObjIpType_"+serviceID), line):
@@ -421,18 +421,18 @@ for line in decoded_data:
 
             natRule= {
                 "natRuleID": natRuleID,
-                "natOrigSrc": urllib.unquote(natOrigSrc),
-                "natOrigDest": urllib.unquote(natOrigDest),
-                "natOrigService": urllib.unquote(natOrigService),
-                "natTransSrc": urllib.unquote(natTransSrc),
-                "natTransDest": urllib.unquote(natTransDest),
-                "natTransService": urllib.unquote(natTransService),
-                "natSrcInterface": urllib.unquote(natSrcInterface),
-                "natDestInterface": urllib.unquote(natDestInterface),
-                "natSrcZone": urllib.unquote(natSrcZone),
-                "natDestZone": urllib.unquote(natDestZone),
-                "natReflexive": urllib.unquote(natReflexive),
-                "natComment": urllib.unquote(natComment),
+                "natOrigSrc": unquote(natOrigSrc),
+                "natOrigDest": unquote(natOrigDest),
+                "natOrigService": unquote(natOrigService),
+                "natTransSrc": unquote(natTransSrc),
+                "natTransDest": unquote(natTransDest),
+                "natTransService": unquote(natTransService),
+                "natSrcInterface": unquote(natSrcInterface),
+                "natDestInterface": unquote(natDestInterface),
+                "natSrcZone": unquote(natSrcZone),
+                "natDestZone": unquote(natDestZone),
+                "natReflexive": unquote(natReflexive),
+                "natComment": unquote(natComment),
                 "natStatus": natStatus,
             }
             natRules.append(natRule)
@@ -451,33 +451,33 @@ for line in decoded_data:
             natComment = ""
             natStatus = ""
 
-print ""
-print "=========================================================="
-print "================== Interface Objects ====================="
-print "=========================================================="
-print ""
-print "ifaceIfNum, ifaceName, ifaceType, interfaceZone, ifaceIp, ifaceMask, ifaceVlanTag, ifaceVlanParent, ifaceComment"
+print("")
+print("==========================================================")
+print("================== Interface Objects =====================")
+print("==========================================================")
+print("")
+print("ifaceIfNum, ifaceName, ifaceType, interfaceZone, ifaceIp, ifaceMask, ifaceVlanTag, ifaceVlanParent, ifaceComment")
 oInterfaces = collections.OrderedDict(sorted(interfaces.items()))
-for interface, interfaceFields in oInterfaces.iteritems():
-    print '%s,%s,%s,%s,%s,%s,%s,%s,%s' % (interfaceFields["ifaceIfNum"], interfaceFields["ifaceName"], interfaceFields["ifaceType"], interfaceFields["interfaceZone"], interfaceFields["ifaceIp"], interfaceFields["ifaceMask"], interfaceFields["ifaceVlanTag"], interfaceFields["ifaceVlanParent"], interfaceFields["ifaceComment"])
+for interface, interfaceFields in oInterfaces.items():
+    print('%s,%s,%s,%s,%s,%s,%s,%s,%s' % (interfaceFields["ifaceIfNum"], interfaceFields["ifaceName"], interfaceFields["ifaceType"], interfaceFields["interfaceZone"], interfaceFields["ifaceIp"], interfaceFields["ifaceMask"], interfaceFields["ifaceVlanTag"], interfaceFields["ifaceVlanParent"], interfaceFields["ifaceComment"]))
 
-print "=========================================================="
-print "================== Firewall Rules ========================"
-print "=========================================================="
-print ""
-print "RuleID,Source Zone,Dest Zone,Source Net,Dest Net, Dest Service, Action, Status, Comment"
+print("==========================================================")
+print("================== Firewall Rules ========================")
+print("==========================================================")
+print("")
+print("RuleID,Source Zone,Dest Zone,Source Net,Dest Net, Dest Service, Action, Status, Comment")
 for x in rules:
     if x["ruleSrcZone"] != prevSrcZone or x["ruleDestZone"] != prevDestZone:
-        print '\n\nSource Zone: %s, Dest Zone: %s' % (x["ruleSrcZone"], x["ruleDestZone"])
-    print '%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["ruleID"], x["ruleSrcZone"], x["ruleDestZone"], x["ruleSrcNet"], x["ruleDestNet"], x["ruleDestService"], x["ruleAction"], x["ruleStatus"], x["ruleComment"])
+        print('\n\nSource Zone: %s, Dest Zone: %s' % (x["ruleSrcZone"], x["ruleDestZone"]))
+    print('%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["ruleID"], x["ruleSrcZone"], x["ruleDestZone"], x["ruleSrcNet"], x["ruleDestNet"], x["ruleDestService"], x["ruleAction"], x["ruleStatus"], x["ruleComment"]))
     prevSrcZone=x["ruleSrcZone"]
     prevDestZone=x["ruleDestZone"]
 
-print "=========================================================="
-print "================== Nat Rules ========================"
-print "=========================================================="
-print ""
-print "natRuleID, natOrigSrc,  natTransSrc, natOrigService, natOrigDest, natTransDest, natTransService, natSrcInterface, natSrcZone, natDestInterface, natDestzone, natReflexive, natStatus, natComment"
+print("==========================================================")
+print("================== Nat Rules ========================")
+print("==========================================================")
+print("")
+print("natRuleID, natOrigSrc,  natTransSrc, natOrigService, natOrigDest, natTransDest, natTransService, natSrcInterface, natSrcZone, natDestInterface, natDestzone, natReflexive, natStatus, natComment")
 for x in natRules:
     if x['natSrcZone'] == 'Not Found':
         if x['natOrigSrc'] in addrGroups:
@@ -521,58 +521,58 @@ for x in natRules:
         else:
             x['natDestZone'] = "Unknown"
 
-    print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["natRuleID"], x["natOrigSrc"], x["natTransSrc"], x["natOrigService"], x["natOrigDest"], x["natTransDest"], x["natTransService"], x["natSrcInterface"], x["natSrcZone"], x["natDestInterface"], x["natDestZone"], x["natReflexive"], x["natStatus"], x["natComment"])
+    print('%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (x["natRuleID"], x["natOrigSrc"], x["natTransSrc"], x["natOrigService"], x["natOrigDest"], x["natTransDest"], x["natTransService"], x["natSrcInterface"], x["natSrcZone"], x["natDestInterface"], x["natDestZone"], x["natReflexive"], x["natStatus"], x["natComment"]))
     
-print ""
-print "=========================================================="
-print "================== IP Address Objects ===================="
-print "=========================================================="
-print ""
-print "Object Name,Zone,IP,Subnet"
+print("")
+print("==========================================================")
+print("================== IP Address Objects ====================")
+print("==========================================================")
+print("")
+print("Object Name,Zone,IP,Subnet")
 oAddrObjects = collections.OrderedDict(sorted(addrObjects.items()))
-for addr, addrFields in oAddrObjects.iteritems():
-    print '%s,%s,%s,%s' % (addr, addrFields["addrZone"], addrFields["addrIP"], addrFields["addrSubnet"])
+for addr, addrFields in oAddrObjects.items():
+    print('%s,%s,%s,%s' % (addr, addrFields["addrZone"], addrFields["addrIP"], addrFields["addrSubnet"]))
 
-print ""
-print "=========================================================="
-print "================== FQDN Address Objects ======================="
-print "=========================================================="
-print ""
-print "Object Name,Zone,FQDN"
+print("")
+print("==========================================================")
+print("================== FQDN Address Objects =======================")
+print("==========================================================")
+print("")
+print("Object Name,Zone,FQDN")
 oAddrFqdnObjects = collections.OrderedDict(sorted(addrFqdnObjects.items()))
-for addr, addrFields in oAddrFqdnObjects.iteritems():
-    print '%s,%s,%s' % (addr, addrFields["addrZone"], addrFields["addrFqdn"])
+for addr, addrFields in oAddrFqdnObjects.items():
+    print('%s,%s,%s' % (addr, addrFields["addrZone"], addrFields["addrFqdn"]))
 
-print ""
-print "=========================================================="
-print "================== Address Groups ========================"
-print "=========================================================="
-print ""
-for group,groupObjects in addrGroups.iteritems():
-    print group
+print("")
+print("==========================================================")
+print("================== Address Groups ========================")
+print("==========================================================")
+print("")
+for group,groupObjects in addrGroups.items():
+    print(group)
     for groupObj in groupObjects:
-        print "\t%s" % groupObj
-    print ""
+        print("\t%s" % groupObj)
+    print("")
 
-print ""
-print "=========================================================="
-print "================== Service Objects ======================="
-print "=========================================================="
-print ""
-print "Service Name, Start Port, EndPort, Protocol, ObjectType"
+print("")
+print("==========================================================")
+print("================== Service Objects =======================")
+print("==========================================================")
+print("")
+print("Service Name, Start Port, EndPort, Protocol, ObjectType")
 oServiceObjects = collections.OrderedDict(sorted(serviceObjects.items()))
-for service,serviceFields in oServiceObjects.iteritems():
-    print '%s,%s-%s,%s,%s' % (service, serviceFields["serviceStartPort"], serviceFields["serviceEndPort"], serviceFields["serviceProtocol"], serviceFields["serviceType"])
+for service,serviceFields in oServiceObjects.items():
+    print('%s,%s-%s,%s,%s' % (service, serviceFields["serviceStartPort"], serviceFields["serviceEndPort"], serviceFields["serviceProtocol"], serviceFields["serviceType"]))
 
-print ""
-print "=========================================================="
-print "================== Service Groups ========================"
-print "=========================================================="
-print ""
-for serviceGroup,serviceGroupObjects in serviceGroups.iteritems():
-    print serviceGroup
+print("")
+print("==========================================================")
+print("================== Service Groups ========================")
+print("==========================================================")
+print("")
+for serviceGroup,serviceGroupObjects in serviceGroups.items():
+    print(serviceGroup)
     for serviceObj in serviceGroupObjects:
         #print serviceObj
-        print "\t%s" % serviceObj
-    print ""
+        print("\t%s" % serviceObj)
+    print("")
 
