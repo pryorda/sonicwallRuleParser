@@ -1,4 +1,4 @@
-# Sonicwall Rule Parser
+# Sonicwall Rule Parser [Python 3 Update]
 Parses Sonicwall Rules, Groups, and Services from a settings export file.
 
 # Example Usage
